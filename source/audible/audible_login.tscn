@@ -25,6 +25,7 @@ anchor_bottom = 1.0
 [node name="Panel" type="PanelContainer" parent="Center"]
 custom_minimum_size = Vector2(560, 0)
 layout_mode = 2
+theme_type_variation = &"Dialog"
 
 [node name="VBox" type="VBoxContainer" parent="Center/Panel"]
 layout_mode = 2

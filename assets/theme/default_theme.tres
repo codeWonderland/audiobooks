@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=17 format=3 uid="uid://c3aud1othemeaa"]
+[gd_resource type="Theme" load_steps=18 format=3 uid="uid://c3aud1othemeaa"]
 
 [ext_resource type="Texture2D" uid="uid://dtu622ns8rko7" path="res://assets/icons/grabber.svg" id="1_grab"]
 
@@ -124,6 +124,17 @@ corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
+[sub_resource type="StyleBoxFlat" id="dialog_panel"]
+content_margin_left = 24.0
+content_margin_top = 22.0
+content_margin_right = 24.0
+content_margin_bottom = 22.0
+bg_color = Color(0.078, 0.122, 0.176, 1)
+corner_radius_top_left = 14
+corner_radius_top_right = 14
+corner_radius_bottom_right = 14
+corner_radius_bottom_left = 14
+
 [sub_resource type="StyleBoxFlat" id="le_normal"]
 content_margin_left = 12.0
 content_margin_top = 8.0
@@ -219,6 +230,8 @@ Panel/styles/panel = SubResource("panel_sidebar")
 PanelContainer/styles/panel = SubResource("panel_card")
 Card/base_type = &"PanelContainer"
 Card/styles/panel = SubResource("panel_card")
+Dialog/base_type = &"PanelContainer"
+Dialog/styles/panel = SubResource("dialog_panel")
 HSlider/styles/slider = SubResource("slider_bg")
 HSlider/styles/grabber_area = SubResource("slider_fill")
 HSlider/styles/grabber_area_highlight = SubResource("slider_fill")
