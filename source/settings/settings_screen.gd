@@ -20,13 +20,31 @@ func _ready() -> void:
 	_bytes_edit.text_submitted.connect(func(_t): _on_save())
 	_done_btn.pressed.connect(func(): closed.emit())
 	_close_btn.pressed.connect(func(): closed.emit())
-	_connect_btn.pressed.connect(func(): connect_requested.emit())
+	_connect_btn.pressed.connect(_on_connect)
+	Audible.state_changed.connect(_refresh_account)
+	Audible.activation_fetched.connect(func(_ok, _m): refresh())
 	refresh()
 
 func refresh() -> void:
 	_bytes_edit.text = Settings.get_activation_bytes()
 	_update_bytes_status()
-	_account_status.text = "Not connected"  # Phase 2 populates this
+	_refresh_account()
+
+func _refresh_account() -> void:
+	if Audible.is_signed_in():
+		var who := Audible.customer_name()
+		_account_status.text = "Connected as %s" % who if not who.is_empty() else "Connected"
+		_connect_btn.text = "Disconnect account"
+	else:
+		_account_status.text = "Not connected"
+		_connect_btn.text = "Connect Audible account"
+
+func _on_connect() -> void:
+	if Audible.is_signed_in():
+		Audible.disconnect_account()
+		refresh()
+	else:
+		connect_requested.emit()
 
 func _update_bytes_status() -> void:
 	_bytes_status.text = "Activation bytes are set ✓" if Settings.has_activation_bytes() \

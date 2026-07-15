@@ -22,6 +22,7 @@ Settings="*res://source/core/settings.gd"
 Library="*res://source/core/library.gd"
 Transcoder="*res://source/core/transcoder.gd"
 Player="*res://source/core/player.gd"
+Audible="*res://source/audible/audible.gd"
 
 [display]
 
