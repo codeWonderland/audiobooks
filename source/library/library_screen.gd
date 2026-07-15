@@ -1,24 +1,30 @@
 extends Control
-## Library browser: pick a folder, scan it for audiobooks, show them as a grid
-## of covers, and reveal a metadata sidebar for the selected book. Emits
-## play_requested when the user chooses to listen (sidebar Play or a card
-## double-click); Main handles the switch to the player screen.
+## Library browser. Shows a unified grid of books filtered by tabs:
+##   • All        — everything (downloaded books + cloud-only Audible titles)
+##   • Downloaded — only books present locally
+##
+## Cloud-only titles are dimmed with a DOWNLOAD badge; selecting one shows a
+## Download action in the sidebar instead of Play/Resume. Downloading fetches +
+## converts the book, after which it becomes a normal local book.
 
 signal play_requested(book: Book)
 signal show_player_requested   ## open the full player for the already-loaded book
 signal settings_requested      ## open the settings screen
-signal audible_library_requested  ## open the Audible cloud-library browser
 
 const BookCardScene := preload("res://source/library/book_card.tscn")
 const PLAY_ICON := preload("res://assets/icons/play.svg")
 const PAUSE_ICON := preload("res://assets/icons/pause.svg")
+const PLACEHOLDER := preload("res://assets/icons/book_placeholder.svg")
+
+const TAB_ALL := 0
+const TAB_DOWNLOADED := 1
 
 @onready var _open_btn: Button = %OpenFolderBtn
 @onready var _settings_btn: Button = %SettingsBtn
-@onready var _audible_btn: Button = %AudibleBtn
 @onready var _folder_label: Label = %FolderLabel
 @onready var _status: Label = %StatusLabel
 @onready var _scan_bar: ProgressBar = %ScanBar
+@onready var _tabs: TabBar = %Tabs
 @onready var _grid: HFlowContainer = %Grid
 @onready var _empty_state: Label = %EmptyState
 
@@ -41,24 +47,30 @@ const PAUSE_ICON := preload("res://assets/icons/pause.svg")
 @onready var _mini_play: Button = %MiniPlayBtn
 @onready var _mini_progress: ProgressBar = %MiniProgress
 
-const PLACEHOLDER := preload("res://assets/icons/book_placeholder.svg")
-
-var _cards: Array[Node] = []
-var _selected: Book = null
-var _selected_card: Node = null
+var _local_books: Array[Book] = []
+var _cloud_items: Array = []
+var _cards_by_key: Dictionary = {}   # key -> card
+var _selected_entry: Dictionary = {}
+var _selected_key: String = ""
 var _dialog: FileDialog
 
 func _ready() -> void:
 	_open_btn.pressed.connect(_pick_folder)
 	_settings_btn.pressed.connect(func(): settings_requested.emit())
-	_audible_btn.pressed.connect(func(): audible_library_requested.emit())
-	_audible_btn.visible = Audible.is_signed_in()
-	Audible.state_changed.connect(func(): _audible_btn.visible = Audible.is_signed_in())
 	_sb_play.pressed.connect(_on_sidebar_play)
-	Library.scan_started.connect(_on_scan_started)
-	Library.book_found.connect(_add_card)
-	Library.scan_progress.connect(_on_scan_progress)
+
+	_tabs.add_tab("All")
+	_tabs.add_tab("Downloaded")
+	_tabs.tab_changed.connect(func(_i): _rebuild())
+
 	Library.scan_finished.connect(_on_scan_finished)
+	Library.remote_cover_ready.connect(_on_remote_cover)
+
+	Audible.library_synced.connect(_on_synced)
+	Audible.state_changed.connect(_on_audible_state)
+	Audible.download_progress.connect(_on_dl_progress)
+	Audible.download_converting.connect(_on_dl_converting)
+	Audible.download_finished.connect(_on_dl_finished)
 
 	_mini_play.pressed.connect(Player.toggle)
 	_mini.gui_input.connect(_on_mini_input)
@@ -90,17 +102,14 @@ func _on_dir_selected(dir: String) -> void:
 	Settings.set_library_folder(dir)
 	_rescan()
 
-## Rescan the app download folder + optional custom folder.
 func _rescan() -> void:
 	_update_folder_label()
-	_empty_state.visible = false
-	for c in _cards:
-		c.queue_free()
-	_cards.clear()
-	_selected = null
-	_selected_card = null
-	_show_sidebar_empty()
 	Library.rescan()
+	_sync_if_connected()
+
+func _sync_if_connected() -> void:
+	if Audible.is_signed_in():
+		Audible.sync_library()
 
 func _update_folder_label() -> void:
 	var custom := Settings.get_library_folder()
@@ -109,44 +118,130 @@ func _update_folder_label() -> void:
 	else:
 		_folder_label.text = "Downloaded books"
 
-func _on_scan_started(total: int) -> void:
-	_empty_state.visible = false
-	_scan_bar.visible = total > 0
-	_scan_bar.max_value = maxi(1, total)
-	_scan_bar.value = 0
-	_status.text = "Scanning… (0/%d)" % total
-
-func _on_scan_progress(done: int, total: int) -> void:
-	_scan_bar.value = done
-	_status.text = "Scanning… (%d/%d)" % [done, total]
-
 func _on_scan_finished(books: Array) -> void:
 	_scan_bar.visible = false
-	if books.is_empty():
-		_status.text = ""
-		_empty_state.text = "No audiobooks yet. Connect your Audible account to download your library, or open a folder of mp3/m4b files."
-		_empty_state.visible = true
+	_local_books.assign(books)
+	_rebuild()
+
+func _on_synced(items: Array, message: String) -> void:
+	_cloud_items = items
+	_rebuild()
+
+func _on_audible_state() -> void:
+	if Audible.is_signed_in():
+		_sync_if_connected()
 	else:
-		_status.text = "%d book%s" % [books.size(), "" if books.size() == 1 else "s"]
+		_cloud_items = []
+		_rebuild()
 
-# --- Cards ------------------------------------------------------------------
+# --- Entry model ------------------------------------------------------------
 
-func _add_card(book: Book) -> void:
+## Merge local books + cloud items into display entries keyed by asin (or a
+## local id for custom-folder books without an asin).
+func _compute_entries() -> Array:
+	var by_asin: Dictionary = {}
+	for it in _cloud_items:
+		var asin: String = it.get("asin", "")
+		by_asin[asin] = {
+			"key": asin, "asin": asin, "cloud": it, "book": null,
+			"downloaded": false, "title": it.get("title", ""), "author": it.get("authors", ""),
+		}
+	var extras: Array = []
+	for b in _local_books:
+		var asin := _asin_for(b)
+		if not asin.is_empty() and by_asin.has(asin):
+			by_asin[asin].book = b
+			by_asin[asin].downloaded = true
+			by_asin[asin].title = b._display_title()
+			by_asin[asin].author = b.author
+		else:
+			extras.append({
+				"key": "local:" + b.id, "asin": asin, "cloud": {}, "book": b,
+				"downloaded": true, "title": b._display_title(), "author": b.author,
+			})
+	var entries: Array = extras + by_asin.values()
+	entries.sort_custom(func(a, c):
+		if a.downloaded != c.downloaded:
+			return a.downloaded  # downloaded first
+		return a.title.naturalnocasecmp_to(c.title) < 0)
+	return entries
+
+func _asin_for(book: Book) -> String:
+	var dd := Library.download_dir()
+	if book.file_path.begins_with(dd):
+		return book.file_path.get_file().get_basename()
+	return ""
+
+# --- Grid build -------------------------------------------------------------
+
+func _rebuild() -> void:
+	for c in _grid.get_children():
+		if c != _empty_state:  # EmptyState lives in the grid; keep it
+			c.queue_free()
+	_cards_by_key.clear()
+
+	var entries := _compute_entries()
+	var downloaded_count := 0
+	var shown := 0
+	for e in entries:
+		if e.downloaded:
+			downloaded_count += 1
+		if _tabs.current_tab == TAB_DOWNLOADED and not e.downloaded:
+			continue
+		_make_card(e)
+		shown += 1
+
+	_empty_state.visible = shown == 0
+	if shown == 0:
+		_empty_state.text = _empty_message()
+	_status.text = "%d downloaded · %d in cloud" % [downloaded_count, _cloud_items.size()] \
+			if not _cloud_items.is_empty() else "%d book%s" % [downloaded_count, "" if downloaded_count == 1 else "s"]
+
+	# Restore selection if the selected entry is still visible.
+	if not _selected_key.is_empty() and _cards_by_key.has(_selected_key):
+		var card: Node = _cards_by_key[_selected_key]
+		_select(card.entry, card)
+	elif _selected_key.is_empty():
+		_show_sidebar_empty()
+
+func _make_card(entry: Dictionary) -> void:
 	var card := BookCardScene.instantiate()
 	_grid.add_child(card)
-	card.setup(book)
-	card.selected.connect(func(b): _select(b, card))
-	card.activated.connect(func(b): _select(b, card); play_requested.emit(b))
-	_cards.append(card)
+	card.setup(entry)
+	card.selected.connect(func(e): _select(e, card))
+	card.activated.connect(func(e): _on_card_activated(e, card))
+	_cards_by_key[entry.key] = card
+	if not entry.downloaded:
+		Library.request_remote_cover(entry.asin, entry.cloud.get("cover_url", ""))
 
-func _select(book: Book, card: Node) -> void:
-	if _selected_card != null and is_instance_valid(_selected_card):
-		_selected_card.set_selected(false)
-	_selected_card = card
-	_selected = book
-	if card != null:
+func _on_card_activated(entry: Dictionary, card: Node) -> void:
+	_select(entry, card)
+	if entry.get("book") != null:
+		var book: Book = entry.book
+		if not (book.encrypted and not book.secret_ready()):
+			play_requested.emit(book)
+
+func _on_remote_cover(asin: String, tex: Texture2D) -> void:
+	if _cards_by_key.has(asin):
+		_cards_by_key[asin].set_cover_texture(tex)
+	if _selected_entry.get("asin", "") == asin and _selected_entry.get("book") == null:
+		_sb_cover.texture = tex
+
+func _empty_message() -> String:
+	if _tabs.current_tab == TAB_DOWNLOADED:
+		return "No downloaded books yet. Switch to All to download from your Audible library."
+	return "No audiobooks yet. Connect your Audible account in Settings to see your library, or open a folder of mp3/m4b files."
+
+# --- Selection --------------------------------------------------------------
+
+func _select(entry: Dictionary, card: Node) -> void:
+	for k in _cards_by_key:
+		_cards_by_key[k].set_selected(false)
+	_selected_entry = entry
+	_selected_key = entry.key
+	if card != null and is_instance_valid(card):
 		card.set_selected(true)
-	_populate_sidebar(book)
+	_populate_sidebar(entry)
 
 # --- Sidebar ----------------------------------------------------------------
 
@@ -154,54 +249,66 @@ func _show_sidebar_empty() -> void:
 	_sb_empty.visible = true
 	_sb_content.visible = false
 
-func _populate_sidebar(book: Book) -> void:
+func _populate_sidebar(entry: Dictionary) -> void:
 	_sb_empty.visible = false
 	_sb_content.visible = true
+	var book = entry.get("book")
+	if book != null:
+		var tex := Library.cover_texture(book)
+		_sb_cover.texture = tex if tex != null else PLACEHOLDER
+		_sb_title.text = book._display_title()
+		_sb_author.text = "by %s" % (book.author if not book.author.is_empty() else "Unknown author")
+		_sb_narrator.text = "Narrated by %s" % book.narrator
+		_sb_narrator.visible = not book.narrator.is_empty()
+		_sb_series.text = book.series
+		_sb_series.visible = not book.series.is_empty() and book.series != book.title
+		_sb_stats.text = "%s · %d chapter%s · %s · %s" % [
+			Fmt.duration(book.duration), book.chapters.size(),
+			"" if book.chapters.size() == 1 else "s", book.format.to_upper(),
+			Fmt.file_size(book.file_size)]
+		_sb_description.text = book.description
+		_sb_description.visible = not book.description.is_empty()
+	else:
+		var cloud: Dictionary = entry.get("cloud", {})
+		_sb_cover.texture = PLACEHOLDER
+		Library.request_remote_cover(entry.asin, cloud.get("cover_url", ""))
+		_sb_title.text = cloud.get("title", "")
+		var authors: String = cloud.get("authors", "")
+		_sb_author.text = "by %s" % (authors if not authors.is_empty() else "Unknown author")
+		var narr: String = cloud.get("narrators", "")
+		_sb_narrator.text = "Narrated by %s" % narr
+		_sb_narrator.visible = not narr.is_empty()
+		_sb_series.text = cloud.get("series", "")
+		_sb_series.visible = not str(cloud.get("series", "")).is_empty()
+		_sb_stats.text = "%s · in your Audible library" % Fmt.duration(int(cloud.get("runtime_min", 0)) * 60)
+		_sb_description.visible = false
+	_update_sidebar_action(entry)
 
-	var tex := Library.cover_texture(book)
-	_sb_cover.texture = tex if tex != null else PLACEHOLDER
-	_sb_title.text = book._display_title()
-	_sb_author.text = "by %s" % (book.author if not book.author.is_empty() else "Unknown author")
-
-	_sb_narrator.text = "Narrated by %s" % book.narrator
-	_sb_narrator.visible = not book.narrator.is_empty()
-
-	_sb_series.text = book.series
-	_sb_series.visible = not book.series.is_empty() and book.series != book.title
-
-	var stats := "%s · %d chapter%s · %s · %s" % [
-		Fmt.duration(book.duration),
-		book.chapters.size(), "" if book.chapters.size() == 1 else "s",
-		book.format.to_upper(),
-		Fmt.file_size(book.file_size),
-	]
-	_sb_stats.text = stats
-
-	_sb_description.text = book.description
-	_sb_description.visible = not book.description.is_empty()
-
-	_update_sidebar_play(book)
-
-## Sets the sidebar's action button + progress line to reflect whether the book
-## is the one currently loaded in the Player, resuming, or fresh.
-func _update_sidebar_play(book: Book) -> void:
+## Sets the sidebar action button for the current entry.
+func _update_sidebar_action(entry: Dictionary) -> void:
+	if entry.is_empty():
+		return
+	var book = entry.get("book")
 	if book == null:
+		_sb_play.disabled = false
+		_sb_play.text = "Download"
+		_sb_progress.visible = false
 		return
 	if book.encrypted and not book.secret_ready():
+		_sb_play.disabled = false
 		_sb_play.text = "Unlock in Settings"
 		var need := "activation bytes" if book.format == "aax" else "a download voucher"
 		_sb_progress.text = "🔒 DRM-protected %s — needs %s." % [book.format.to_upper(), need]
 		_sb_progress.visible = true
 		return
+	_sb_play.disabled = false
 	if _is_current(book):
 		_sb_play.text = "Currently playing"
-		var pos := Player.get_position()
-		_sb_progress.text = "%s · %s" % [Player.chapter_title(), Fmt.clock(pos)]
+		_sb_progress.text = "%s · %s" % [Player.chapter_title(), Fmt.clock(Player.get_position())]
 		_sb_progress.visible = true
 	elif Settings.has_progress(book.id):
 		var pos := Settings.get_position(book.id)
-		var left := maxf(0.0, book.duration - pos)
-		_sb_progress.text = "Resume · %s (%s left)" % [Fmt.clock(pos), Fmt.duration(left)]
+		_sb_progress.text = "Resume · %s (%s left)" % [Fmt.clock(pos), Fmt.duration(maxf(0.0, book.duration - pos))]
 		_sb_progress.visible = true
 		_sb_play.text = "Resume"
 	else:
@@ -213,23 +320,54 @@ func _is_current(book: Book) -> bool:
 			and Player.has_stream()
 
 func _on_sidebar_play() -> void:
-	if _selected == null:
+	if _selected_entry.is_empty():
 		return
-	if _selected.encrypted and not _selected.secret_ready():
-		settings_requested.emit()  # let the user add the key
-	elif _is_current(_selected):
-		show_player_requested.emit()  # already loaded — just open the player
+	var book = _selected_entry.get("book")
+	if book == null:
+		# Cloud-only: download it.
+		_sb_play.disabled = true
+		_sb_play.text = "Starting…"
+		_sb_progress.text = "Preparing download…"
+		_sb_progress.visible = true
+		Audible.download_book(_selected_entry.get("cloud", {}))
+		return
+	if book.encrypted and not book.secret_ready():
+		settings_requested.emit()
+	elif _is_current(book):
+		show_player_requested.emit()
 	else:
-		play_requested.emit(_selected)
+		play_requested.emit(book)
 
 ## Re-evaluate the selected book's sidebar (e.g. after activation bytes change).
 func refresh_current() -> void:
-	if _selected != null:
-		_update_sidebar_play(_selected)
+	if not _selected_entry.is_empty():
+		_update_sidebar_action(_selected_entry)
 
-## Rescan from disk (e.g. after downloading new books from Audible).
 func reload() -> void:
 	_rescan()
+
+# --- Download progress (mirrors onto the sidebar action) --------------------
+
+func _is_selected_asin(asin: String) -> bool:
+	return _selected_entry.get("asin", "") == asin and not asin.is_empty()
+
+func _on_dl_progress(asin: String, ratio: float) -> void:
+	if _is_selected_asin(asin):
+		_sb_play.text = "Downloading %d%%" % int(ratio * 100.0)
+
+func _on_dl_converting(asin: String) -> void:
+	if _is_selected_asin(asin):
+		_sb_play.text = "Converting…"
+
+func _on_dl_finished(asin: String, success: bool, message: String) -> void:
+	if success:
+		_selected_key = asin  # re-select once it reappears as a local book
+		Library.rescan()
+	elif _is_selected_asin(asin):
+		_sb_play.disabled = false
+		_sb_play.text = "Download"
+		_sb_progress.text = message
+		_sb_progress.visible = true
 
 # --- Mini player ------------------------------------------------------------
 
@@ -252,20 +390,17 @@ func _on_mini_input(event: InputEvent) -> void:
 
 func _on_player_book_changed(_book: Book) -> void:
 	_update_mini()
-	if _selected != null:
-		_update_sidebar_play(_selected)
+	refresh_current()
 
 func _on_player_state_changed(_playing: bool) -> void:
-	# state_changed also fires once the stream finishes loading, so this is where
-	# the mini player first becomes visible (book_changed fires before load).
 	_update_mini()
-	if _selected != null:
-		_update_sidebar_play(_selected)
+	refresh_current()
 
 func _on_player_position_changed(pos: float, length: float) -> void:
 	if not _mini.visible:
 		return
 	_mini_chapter.text = Player.chapter_title()
 	_mini_progress.value = (pos / length) * 100.0 if length > 0.0 else 0.0
-	if _selected != null and _is_current(_selected):
+	var book = _selected_entry.get("book")
+	if book != null and _is_current(book):
 		_sb_progress.text = "%s · %s" % [Player.chapter_title(), Fmt.clock(pos)]

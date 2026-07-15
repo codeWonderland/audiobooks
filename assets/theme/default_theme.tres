@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=18 format=3 uid="uid://c3aud1othemeaa"]
+[gd_resource type="Theme" load_steps=21 format=3 uid="uid://c3aud1othemeaa"]
 
 [ext_resource type="Texture2D" uid="uid://dtu622ns8rko7" path="res://assets/icons/grabber.svg" id="1_grab"]
 
@@ -167,6 +167,29 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
+[sub_resource type="StyleBoxFlat" id="tab_selected"]
+content_margin_left = 16.0
+content_margin_top = 9.0
+content_margin_right = 16.0
+content_margin_bottom = 9.0
+bg_color = Color(1, 1, 1, 0)
+border_width_bottom = 3
+border_color = Color(0.961, 0.651, 0.239, 1)
+
+[sub_resource type="StyleBoxFlat" id="tab_unselected"]
+content_margin_left = 16.0
+content_margin_top = 9.0
+content_margin_right = 16.0
+content_margin_bottom = 9.0
+bg_color = Color(1, 1, 1, 0)
+
+[sub_resource type="StyleBoxFlat" id="tab_hovered"]
+content_margin_left = 16.0
+content_margin_top = 9.0
+content_margin_right = 16.0
+content_margin_bottom = 9.0
+bg_color = Color(1, 1, 1, 0.05)
+
 [sub_resource type="StyleBoxFlat" id="progress_bg"]
 bg_color = Color(0.165, 0.227, 0.302, 1)
 corner_radius_top_left = 4
@@ -249,3 +272,12 @@ LineEdit/font_sizes/font_size = 15
 LineEdit/styles/normal = SubResource("le_normal")
 LineEdit/styles/focus = SubResource("le_focus")
 LineEdit/styles/read_only = SubResource("le_normal")
+TabBar/colors/font_selected_color = Color(0.929, 0.937, 0.949, 1)
+TabBar/colors/font_unselected_color = Color(0.541, 0.596, 0.659, 1)
+TabBar/colors/font_hovered_color = Color(1, 1, 1, 1)
+TabBar/font_sizes/font_size = 16
+TabBar/constants/h_separation = 6
+TabBar/styles/tab_selected = SubResource("tab_selected")
+TabBar/styles/tab_unselected = SubResource("tab_unselected")
+TabBar/styles/tab_hovered = SubResource("tab_hovered")
+TabBar/styles/tab_focus = SubResource("tab_unselected")

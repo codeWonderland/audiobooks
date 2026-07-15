@@ -1,24 +1,39 @@
 extends PanelContainer
-## A single book tile in the library grid. Single click selects (populates the
-## sidebar); double click activates (opens the player).
+## A tile in the library grid. Represents a library "entry" which may be a local
+## (downloaded) book, a cloud-only book from the Audible library, or both.
+## Single click selects (populates the sidebar); double click activates
+## (plays if downloaded).
 
-signal selected(book: Book)
-signal activated(book: Book)
+signal selected(entry: Dictionary)
+signal activated(entry: Dictionary)
 
 const PLACEHOLDER := preload("res://assets/icons/book_placeholder.svg")
 
-var book: Book
+var entry: Dictionary
 
 @onready var _cover: TextureRect = %Cover
 @onready var _title: Label = %CardTitle
 @onready var _author: Label = %CardAuthor
+@onready var _badge: Control = %Badge
 
-func setup(b: Book) -> void:
-	book = b
-	_title.text = b._display_title()
-	_author.text = b.author if not b.author.is_empty() else "Unknown author"
-	var tex := Library.cover_texture(b)
-	_cover.texture = tex if tex != null else PLACEHOLDER
+func setup(e: Dictionary) -> void:
+	entry = e
+	_title.text = e.get("title", "")
+	var author: String = e.get("author", "")
+	_author.text = author if not author.is_empty() else "Unknown author"
+	var downloaded: bool = e.get("downloaded", false)
+	_badge.visible = not downloaded
+	_cover.modulate = Color(1, 1, 1, 1) if downloaded else Color(1, 1, 1, 0.45)
+	var book = e.get("book", null)
+	if book != null:
+		var tex := Library.cover_texture(book)
+		_cover.texture = tex if tex != null else PLACEHOLDER
+	else:
+		_cover.texture = PLACEHOLDER  # remote cover arrives via set_cover_texture()
+
+func set_cover_texture(tex: Texture2D) -> void:
+	if tex != null:
+		_cover.texture = tex
 
 func set_selected(on: bool) -> void:
 	if on:
@@ -35,9 +50,9 @@ func _gui_input(event: InputEvent) -> void:
 	if event is InputEventMouseButton and event.pressed \
 			and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.double_click:
-			activated.emit(book)
+			activated.emit(entry)
 		else:
-			selected.emit(book)
+			selected.emit(entry)
 
 func _on_mouse_entered() -> void:
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND

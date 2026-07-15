@@ -16,6 +16,7 @@ signal scan_started(total: int)
 signal book_found(book: Book)
 signal scan_progress(done: int, total: int)
 signal scan_finished(books: Array)
+signal remote_cover_ready(asin: String, texture: Texture2D)
 
 const AUDIO_EXTS := ["mp3", "m4b", "m4a", "aax", "aaxc"]
 
@@ -245,6 +246,34 @@ func _ensure_cover(book: Book) -> void:
 	], out, true)
 	if FileAccess.file_exists(jpg) and _file_size(jpg) > 0:
 		book.cover_path = jpg
+
+## Asynchronously fetch a remote cover (for cloud books not yet downloaded),
+## cached by asin. Emits remote_cover_ready(asin, texture) when available.
+var _remote_covers: Dictionary = {}  # asin -> Texture2D
+
+func request_remote_cover(asin: String, url: String) -> void:
+	if asin.is_empty():
+		return
+	if _remote_covers.has(asin):
+		remote_cover_ready.emit(asin, _remote_covers[asin])
+		return
+	if url.is_empty():
+		return
+	var req := HTTPRequest.new()
+	add_child(req)
+	req.request_completed.connect(func(_r, code, _h, body):
+		req.queue_free()
+		if code == 200:
+			var img := Image.new()
+			if img.load_jpg_from_buffer(body) != OK:
+				img.load_png_from_buffer(body)
+			if img.get_width() > 0:
+				var tex := ImageTexture.create_from_image(img)
+				_remote_covers[asin] = tex
+				remote_cover_ready.emit(asin, tex)
+	, CONNECT_ONE_SHOT)
+	if req.request(url) != OK:
+		req.queue_free()
 
 ## Returns the cover as a Texture2D (cached), or null if the book has none.
 func cover_texture(book: Book) -> Texture2D:

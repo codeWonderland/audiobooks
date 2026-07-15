@@ -47,14 +47,6 @@ theme_type_variation = &"Muted"
 text = "No folder selected"
 text_overrun_behavior = 3
 
-[node name="AudibleBtn" type="Button" parent="Margin/Root/Toolbar"]
-unique_name_in_owner = true
-visible = false
-layout_mode = 2
-size_flags_vertical = 4
-theme_type_variation = &"Pill"
-text = "Audible Library"
-
 [node name="SettingsBtn" type="Button" parent="Margin/Root/Toolbar"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(44, 44)
@@ -71,6 +63,10 @@ size_flags_vertical = 4
 theme_type_variation = &"Primary"
 text = "  Open Folder"
 icon = ExtResource("2_folder")
+
+[node name="Tabs" type="TabBar" parent="Margin/Root"]
+unique_name_in_owner = true
+layout_mode = 2
 
 [node name="ScanBar" type="ProgressBar" parent="Margin/Root"]
 unique_name_in_owner = true
