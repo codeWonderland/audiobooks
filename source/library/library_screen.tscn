@@ -131,68 +131,73 @@ layout_mode = 2
 size_flags_vertical = 3
 horizontal_scroll_mode = 0
 
-[node name="SidebarContent" type="VBoxContainer" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll"]
+[node name="DetailPad" type="MarginContainer" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/margin_right = 14
+
+[node name="SidebarContent" type="VBoxContainer" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_constants/separation = 8
 
-[node name="SbCover" type="TextureRect" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbCover" type="TextureRect" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 300)
 layout_mode = 2
 expand_mode = 1
 stretch_mode = 6
 
-[node name="SbTitle" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbTitle" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Title"
 text = "Title"
 autowrap_mode = 2
 
-[node name="SbAuthor" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbAuthor" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Muted"
 text = "by Author"
 autowrap_mode = 2
 
-[node name="SbNarrator" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbNarrator" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Muted"
 autowrap_mode = 2
 
-[node name="SbSeries" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbSeries" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Muted"
 autowrap_mode = 2
 
-[node name="SbStats" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbStats" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Faint"
 autowrap_mode = 2
 
-[node name="SbPlayBtn" type="Button" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbPlayBtn" type="Button" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 theme_type_variation = &"Primary"
 text = "Play"
 
-[node name="SbProgress" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbProgress" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Faint"
 horizontal_alignment = 1
 
-[node name="Sep" type="HSeparator" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="Sep" type="HSeparator" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 layout_mode = 2
 
-[node name="SbDescription" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/SidebarContent"]
+[node name="SbDescription" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
