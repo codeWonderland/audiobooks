@@ -28,12 +28,35 @@ var _total: float = 0.0
 func _ready() -> void:
 	set_process(false)
 
+# --- Playback-cache codec ---------------------------------------------------
+# Godot decodes Ogg Vorbis and MP3 natively (but not Opus/AAC), so a transcode
+# has to target one of those. We prefer Vorbis (accurate seeking, compact for
+# speech) but fall back to MP3 when the ffmpeg build lacks libvorbis — the
+# default Homebrew ffmpeg is built without it. Resolved once, then cached.
+var _fmt_cache: Dictionary = {}
+
+func _fmt() -> Dictionary:
+	if _fmt_cache.is_empty():
+		if Ffmpeg.has_encoder("libvorbis"):
+			_fmt_cache = {"ext": "ogg", "container": "ogg", "codec": "libvorbis", "quality": "4"}
+		elif Ffmpeg.has_encoder("libmp3lame"):
+			_fmt_cache = {"ext": "mp3", "container": "mp3", "codec": "libmp3lame", "quality": "2"}
+		else:
+			# Nothing ideal available; attempt Vorbis so the failure is explicit.
+			_fmt_cache = {"ext": "ogg", "container": "ogg", "codec": "libvorbis", "quality": "4"}
+	return _fmt_cache
+
+## The ffmpeg output args (-c:a … -f …) for the chosen playback-cache codec.
+func _encode_args() -> Array:
+	var f := _fmt()
+	return ["-vn", "-c:a", f["codec"], "-q:a", f["quality"], "-f", f["container"]]
+
 ## Path to a ready-to-play file, or "" if a transcode is required first.
 func playable_path(book: Book) -> String:
 	if book.format == "mp3":
 		return book.file_path
-	var ogg := _audio_cache().path_join(book.id + ".ogg")
-	return ogg if FileAccess.file_exists(ogg) else ""
+	var cached := ogg_cache_path(book.id)
+	return cached if FileAccess.file_exists(cached) else ""
 
 func is_busy() -> bool:
 	return _pid != -1
@@ -45,12 +68,14 @@ func ffmpeg_available() -> bool:
 
 func _tool_ok(tool_name: String) -> bool:
 	var out: Array = []
-	return OS.execute(tool_name, ["-version"], out, false) == 0
+	return OS.execute(Ffmpeg.tool_path(tool_name), ["-version"], out, false) == 0
 
 # --- Playback-cache pre-generation ------------------------------------------
 
+## Path to the cached playback file for a book id. Named "ogg" for historical
+## reasons; the extension follows the chosen codec (may be .mp3 — see _fmt()).
 func ogg_cache_path(book_id: String) -> String:
-	return _audio_cache().path_join(book_id + ".ogg")
+	return _audio_cache().path_join(book_id + "." + str(_fmt()["ext"]))
 
 func _file_len(path: String) -> int:
 	var f := FileAccess.open(path, FileAccess.READ)
@@ -77,12 +102,10 @@ func pregenerate_ogg(src_path: String) -> bool:
 	var part := dest + ".part"
 	if FileAccess.file_exists(part):
 		DirAccess.remove_absolute(part)
-	var pid := OS.create_process("ffmpeg", [
-		"-y", "-loglevel", "error",
-		"-i", src_path,
-		"-vn", "-c:a", "libvorbis", "-q:a", "4", "-f", "ogg",
-		part,
-	])
+	var pre_args := PackedStringArray(["-y", "-loglevel", "error", "-i", src_path])
+	pre_args.append_array(_encode_args())
+	pre_args.append(part)
+	var pid := OS.create_process(Ffmpeg.tool_path("ffmpeg"), pre_args)
 	if pid <= 0:
 		return false
 	while OS.is_process_running(pid):
@@ -120,7 +143,7 @@ func cancel() -> void:
 func _start(book: Book) -> void:
 	_book = book
 	_total = maxf(1.0, book.duration)
-	_out_final = _audio_cache().path_join(book.id + ".ogg")
+	_out_final = ogg_cache_path(book.id)
 	_out_part = _out_final + ".part"
 	_progress_file = _audio_cache().path_join(book.id + ".progress")
 	if FileAccess.file_exists(_out_part):
@@ -133,15 +156,11 @@ func _start(book: Book) -> void:
 			args.append_array(["-activation_bytes", Settings.get_activation_bytes()])
 		"aaxc":
 			args.append_array(["-audible_key", book.voucher_key, "-audible_iv", book.voucher_iv])
-	args.append_array([
-		"-i", book.file_path,
-		"-vn",
-		"-c:a", "libvorbis",
-		"-q:a", "4",
-		"-f", "ogg",  # explicit: the .part extension hides the real container
-		_out_part,
-	])
-	_pid = OS.create_process("ffmpeg", args)
+	args.append_array(["-i", book.file_path])
+	# -f is explicit because the .part extension hides the real container.
+	args.append_array(_encode_args())
+	args.append(_out_part)
+	_pid = OS.create_process(Ffmpeg.tool_path("ffmpeg"), args)
 	if _pid <= 0:
 		transcode_finished.emit(book, false, "")
 		_reset()

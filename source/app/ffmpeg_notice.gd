@@ -47,6 +47,7 @@ func _populate() -> void:
 	_note.text = note
 
 func _on_recheck() -> void:
+	Ffmpeg.reset()  # forget the earlier miss so a fresh install is picked up
 	if Transcoder.ffmpeg_available():
 		closed.emit()
 	else:

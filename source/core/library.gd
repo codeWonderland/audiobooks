@@ -153,7 +153,7 @@ func _file_size(path: String) -> int:
 
 func _probe(path: String) -> Dictionary:
 	var out: Array = []
-	var code := OS.execute("ffprobe", [
+	var code := OS.execute(Ffmpeg.tool_path("ffprobe"), [
 		"-v", "quiet",
 		"-output_format", "json",
 		"-show_format",
@@ -236,7 +236,7 @@ func _ensure_cover(book: Book) -> void:
 		return
 	# Attempt to extract an embedded cover; harmless no-op if none present.
 	var out: Array = []
-	OS.execute("ffmpeg", [
+	OS.execute(Ffmpeg.tool_path("ffmpeg"), [
 		"-y", "-loglevel", "quiet",
 		"-i", book.file_path,
 		"-map", "0:v:0",

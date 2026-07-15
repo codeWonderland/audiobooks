@@ -412,7 +412,7 @@ func _resume_asin(asin: String) -> void:
 
 ## Lossless decrypt+remux AAXC -> m4b, preserving audio, chapters and cover.
 func _convert_aaxc_to_m4b(aaxc: String, key: String, iv: String, dest: String) -> bool:
-	var pid := OS.create_process("ffmpeg", [
+	var pid := OS.create_process(Ffmpeg.tool_path("ffmpeg"), [
 		"-y", "-loglevel", "error",
 		"-audible_key", key, "-audible_iv", iv,
 		"-i", aaxc,
