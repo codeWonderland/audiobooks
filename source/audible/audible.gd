@@ -107,7 +107,8 @@ func finish_login(redirect_url: String) -> void:
 			"app_version": "3.56.2",
 			"device_serial": _pending.serial,
 			"device_type": DEVICE_TYPE,
-			"device_name": "Audiobooks for Godot",
+			# Amazon fills these %TOKENS% in server-side; must match the real client.
+			"device_name": "%FIRST_NAME%%FIRST_NAME_POSSESSIVE_STRING%%DUPE_STRATEGY_1ST%Audible for iPhone",
 			"os_version": "15.0.0",
 			"software_version": "35602678",
 			"device_model": "iPhone",
@@ -122,22 +123,23 @@ func finish_login(redirect_url: String) -> void:
 		},
 		"requested_extensions": ["device_info", "customer_info"],
 	}
-	var headers := PackedStringArray([
-		"Content-Type: application/json",
-		"Accept: application/json",
-		"Accept-Charset: utf-8",
-		"x-amzn-identity-auth-domain: api.amazon.%s" % dom,
-		"User-Agent: AmazonWebView/Audible/3.56.2/iOS/15.0.0/iPhone",
-	])
+	# Match the reference client: minimal headers (Content-Type only).
+	var headers := PackedStringArray(["Content-Type: application/json"])
 	var resp := await _http("https://api.amazon.%s/auth/register" % dom, headers,
 			HTTPClient.METHOD_POST, JSON.stringify(body))
-	if not resp.ok:
-		login_completed.emit(false, "Network error contacting Amazon (%s)." % resp.get("error", str(resp.status)))
+	var body_text := (resp.body as PackedByteArray).get_string_from_utf8()
+	var parsed = JSON.parse_string(body_text)
+	if resp.get("result", -1) != HTTPRequest.RESULT_SUCCESS:
+		login_completed.emit(false, "Couldn't reach Amazon (network error). Check your connection and try again.")
 		return
-	var parsed = JSON.parse_string(resp.body.get_string_from_utf8())
+	if not resp.ok:
+		push_warning("Audible register failed HTTP %s: %s" % [resp.status, body_text])
+		login_completed.emit(false, _register_error(parsed, resp.status))
+		return
 	var success = parsed.get("response", {}).get("success", {}) if parsed is Dictionary else {}
 	if success.is_empty():
-		login_completed.emit(false, "Amazon rejected the registration. The code may have expired — try signing in again.")
+		push_warning("Audible register: missing success in %s" % body_text)
+		login_completed.emit(false, _register_error(parsed, resp.status))
 		return
 
 	var tokens: Dictionary = success.get("tokens", {})
@@ -164,6 +166,18 @@ func finish_login(redirect_url: String) -> void:
 	state_changed.emit()
 	login_completed.emit(true, "Connected as %s." % customer_name())
 	fetch_activation_bytes()
+
+## Turns Amazon's register error body into a human-readable message.
+func _register_error(parsed, status) -> String:
+	if parsed is Dictionary:
+		var err = parsed.get("response", {}).get("error", {})
+		if err is Dictionary and err.has("message"):
+			return "Amazon rejected sign-in (%s): %s" % [err.get("code", str(status)), err.get("message")]
+		if parsed.has("error_description"):
+			return "Amazon: %s" % parsed["error_description"]
+		if parsed.has("message"):
+			return "Amazon: %s" % parsed["message"]
+	return "Amazon returned HTTP %s. The code is single-use — press \"Open Amazon sign-in\" again to get a fresh one, then paste the new URL right away." % status
 
 # --- Activation bytes (unlocks legacy .aax) ---------------------------------
 
