@@ -48,8 +48,11 @@ echo "==> Building Audiobooks $VERSION"
 
 # --- preflight ------------------------------------------------------------
 command -v godot >/dev/null || { echo "error: godot not on PATH" >&2; exit 1; }
-security find-identity -v -p codesigning | grep -qF "$IDENTITY" \
-  || { echo "error: signing identity not found: $IDENTITY" >&2; exit 1; }
+IDENTITIES="$(security find-identity -v -p codesigning || true)"
+if [[ "$IDENTITIES" != *"$IDENTITY"* ]]; then
+  echo "error: signing identity not found: $IDENTITY" >&2
+  exit 1
+fi
 xcrun notarytool history --keychain-profile "$NOTARY_PROFILE" >/dev/null 2>&1 \
   || { echo "error: notary profile '$NOTARY_PROFILE' not stored (see header)" >&2; exit 1; }
 
@@ -61,8 +64,13 @@ godot --headless --export-release "$PRESET" "$APP_PATH"
 
 echo "==> Verifying signature"
 codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-codesign -dvv "$APP_PATH" 2>&1 | grep -qF "TeamIdentifier=552AB2MLSJ" \
-  || { echo "error: app is not signed with the expected Developer ID (ad-hoc?)" >&2; exit 1; }
+# Capture first, then match: `... | grep -q` would SIGPIPE codesign and, under
+# `set -o pipefail`, fail the pipeline even on a match (false negative).
+SIG_INFO="$(codesign -dvv "$APP_PATH" 2>&1 || true)"
+if [[ "$SIG_INFO" != *"TeamIdentifier=552AB2MLSJ"* ]]; then
+  echo "error: app is not signed with the expected Developer ID (ad-hoc?)" >&2
+  exit 1
+fi
 
 # --- 2. notarize + staple the app ----------------------------------------
 echo "==> Notarizing .app (this can take a few minutes)"
