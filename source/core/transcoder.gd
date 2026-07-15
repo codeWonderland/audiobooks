@@ -38,6 +38,53 @@ func playable_path(book: Book) -> String:
 func is_busy() -> bool:
 	return _pid != -1
 
+# --- Playback-cache pre-generation ------------------------------------------
+
+func ogg_cache_path(book_id: String) -> String:
+	return _audio_cache().path_join(book_id + ".ogg")
+
+func _file_len(path: String) -> int:
+	var f := FileAccess.open(path, FileAccess.READ)
+	return int(f.get_length()) if f != null else 0
+
+## True if the playback ogg for a (non-DRM) source file already exists.
+func has_ogg_for(src_path: String) -> bool:
+	var size := _file_len(src_path)
+	if size <= 0:
+		return false
+	return FileAccess.file_exists(ogg_cache_path(Book.compute_id(src_path, size)))
+
+## Pre-build the playback ogg for a decrypted file (e.g. a freshly downloaded
+## m4b) so the first open is instant. Deletes any stale .part first to avoid
+## resuming onto a corrupt file. Uses its own ffmpeg process, independent of the
+## playback job. Returns true on success.
+func pregenerate_ogg(src_path: String) -> bool:
+	var size := _file_len(src_path)
+	if size <= 0:
+		return false
+	var dest := ogg_cache_path(Book.compute_id(src_path, size))
+	if FileAccess.file_exists(dest):
+		return true
+	var part := dest + ".part"
+	if FileAccess.file_exists(part):
+		DirAccess.remove_absolute(part)
+	var pid := OS.create_process("ffmpeg", [
+		"-y", "-loglevel", "error",
+		"-i", src_path,
+		"-vn", "-c:a", "libvorbis", "-q:a", "4", "-f", "ogg",
+		part,
+	])
+	if pid <= 0:
+		return false
+	while OS.is_process_running(pid):
+		await get_tree().create_timer(0.3).timeout
+	if OS.get_process_exit_code(pid) == 0 and _file_len(part) > 0:
+		DirAccess.rename_absolute(part, dest)
+		return true
+	if FileAccess.file_exists(part):
+		DirAccess.remove_absolute(part)
+	return false
+
 ## Ensures `book` is playable. Emits transcode_finished(book, true, path) as soon
 ## as it's ready (immediately for mp3 / cached ogg), otherwise starts ffmpeg and
 ## emits progress until done. Ignored if a transcode is already running.

@@ -16,6 +16,7 @@ signal state_changed
 signal library_synced(items: Array, message: String)
 signal download_progress(asin: String, ratio: float)
 signal download_converting(asin: String)
+signal download_preparing(asin: String)
 signal download_finished(asin: String, success: bool, message: String)
 
 const DEVICE_TYPE := "A2CZJZGLK2JJVM"
@@ -37,6 +38,8 @@ var _pending: Dictionary = {}       # in-flight login: verifier, serial, client_
 
 func _ready() -> void:
 	_load()
+	# Resume any interrupted download/convert/prepare pipelines after startup.
+	resume_pending.call_deferred()
 
 # --- Public state -----------------------------------------------------------
 
@@ -266,58 +269,146 @@ func _map_item(it: Dictionary) -> Dictionary:
 		"downloaded": is_downloaded(asin),
 	}
 
-## Files for a downloaded book (named by asin for dedup). The optimal form is
-## a DRM-free .m4b; a raw .aaxc + .voucher is kept only if conversion failed.
+## Pipeline artifacts for a book, keyed by asin. Committed (stage-complete)
+## files have stable names; in-progress steps use .part temps that are discarded
+## before the step is (re)started, so an interrupted run never corrupts state.
+##   download: <asin>.dl.part  -> commits to  <asin>.aaxc (+ <asin>.voucher)
+##   convert : <asin>.m4b.part -> commits to  <asin>.m4b (then aaxc+voucher removed)
+##   prepare : <id>.ogg.part   -> commits to  cache/audio/<id>.ogg  (Transcoder)
 func _m4b_path(asin: String) -> String:
 	return Library.download_dir().path_join(asin + ".m4b")
 
 func _aaxc_path(asin: String) -> String:
 	return Library.download_dir().path_join(asin + ".aaxc")
 
+func _voucher_path(asin: String) -> String:
+	return Library.download_dir().path_join(asin + ".voucher")
+
+func _dl_part(asin: String) -> String:
+	return Library.download_dir().path_join(asin + ".dl.part")
+
+func _m4b_part(asin: String) -> String:
+	return Library.download_dir().path_join(asin + ".m4b.part")
+
 func is_downloaded(asin: String) -> bool:
 	return FileAccess.file_exists(_m4b_path(asin)) or FileAccess.file_exists(_aaxc_path(asin))
 
-# --- Download + license + voucher -------------------------------------------
+func _rm(path: String) -> void:
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
 
-## Download a library item, then losslessly decrypt/remux it to a DRM-free .m4b
-## (keeping chapters + cover). Falls back to keeping the .aaxc + voucher if the
-## conversion fails, so the book is still playable either way.
+func _write_voucher(asin: String, key: String, iv: String) -> void:
+	var f := FileAccess.open(_voucher_path(asin), FileAccess.WRITE)
+	if f:
+		f.store_string(JSON.stringify({"key": key, "iv": iv}))
+
+func _read_voucher(asin: String) -> Dictionary:
+	var f := FileAccess.open(_voucher_path(asin), FileAccess.READ)
+	if f == null:
+		return {}
+	var d = JSON.parse_string(f.get_as_text())
+	return d if d is Dictionary else {}
+
+# --- Download pipeline -------------------------------------------------------
+
+## Full pipeline: download the AAXC, then losslessly decrypt/remux it to a
+## DRM-free .m4b (chapters + cover), then pre-build the playback ogg so the
+## first open is instant. Each stage commits atomically for safe resume.
 func download_book(item: Dictionary) -> void:
 	var asin := str(item.get("asin", ""))
 	if asin.is_empty():
 		download_finished.emit(asin, false, "Missing asin.")
 		return
-	if is_downloaded(asin):
+	if FileAccess.file_exists(_m4b_path(asin)):
 		download_finished.emit(asin, true, "Already downloaded.")
 		return
 	var lic := await _get_license(asin)
 	if not lic.get("ok", false):
 		download_finished.emit(asin, false, lic.get("error", "License request failed."))
 		return
-	# Download to a temp name the scanner ignores (not an audio extension).
-	var tmp := Library.download_dir().path_join(asin + ".aaxc.dl")
-	var ok := await _download_file(lic.url, tmp, asin)
-	if not ok:
-		if FileAccess.file_exists(tmp):
-			DirAccess.remove_absolute(tmp)
+	# Stage 1: download to a .part (scanner ignores it), then commit.
+	var dl := _dl_part(asin)
+	_rm(dl)
+	if not await _download_file(lic.url, dl, asin):
+		_rm(dl)
 		download_finished.emit(asin, false, "Download failed.")
 		return
+	_write_voucher(asin, lic.key, lic.iv)
+	_rm(_aaxc_path(asin))
+	DirAccess.rename_absolute(dl, _aaxc_path(asin))
+	# Stages 2 + 3.
+	await _process_from_aaxc(asin)
 
-	download_converting.emit(asin)
-	var m4b := _m4b_path(asin)
-	var converted := await _convert_aaxc_to_m4b(tmp, lic.key, lic.iv, m4b)
-	if converted:
-		DirAccess.remove_absolute(tmp)
-		download_finished.emit(asin, true, "Downloaded & converted.")
+## Convert (stage 2) + prepare ogg (stage 3), starting from a committed
+## <asin>.aaxc + <asin>.voucher.
+func _process_from_aaxc(asin: String) -> void:
+	var v := _read_voucher(asin)
+	if v.is_empty():
+		download_finished.emit(asin, false, "Missing voucher; cannot convert.")
 		return
-	# Fallback: keep the encrypted file + voucher; still plays via the aaxc path.
-	if FileAccess.file_exists(m4b):
-		DirAccess.remove_absolute(m4b)
-	DirAccess.rename_absolute(tmp, _aaxc_path(asin))
-	var vf := FileAccess.open(_aaxc_path(asin).get_basename() + ".voucher", FileAccess.WRITE)
-	if vf:
-		vf.store_string(JSON.stringify({"key": lic.key, "iv": lic.iv}))
-	download_finished.emit(asin, true, "Downloaded (kept encrypted file; conversion failed).")
+	download_converting.emit(asin)
+	var part := _m4b_part(asin)
+	_rm(part)  # discard any partial output from a previous interrupted convert
+	var ok := await _convert_aaxc_to_m4b(_aaxc_path(asin), v.get("key", ""), v.get("iv", ""), part)
+	if not ok:
+		_rm(part)
+		# Keep the encrypted file + voucher; it still plays via the aaxc path.
+		download_finished.emit(asin, true, "Downloaded (kept encrypted file; conversion failed).")
+		return
+	_rm(_m4b_path(asin))
+	DirAccess.rename_absolute(part, _m4b_path(asin))
+	_rm(_aaxc_path(asin))
+	_rm(_voucher_path(asin))
+	# Stage 3: pre-build the playback cache.
+	download_preparing.emit(asin)
+	await Transcoder.pregenerate_ogg(_m4b_path(asin))
+	download_finished.emit(asin, true, "Downloaded & ready to play.")
+
+# --- Resume interrupted pipelines on launch ---------------------------------
+
+## Continue any book whose pipeline is incomplete, from the last completed
+## stage, discarding partial next-stage output first. Runs stages sequentially.
+func resume_pending() -> void:
+	for asin in _pending_asins():
+		await _resume_asin(asin)
+
+func _pending_asins() -> Array:
+	var found := {}
+	var dir := DirAccess.open(Library.download_dir())
+	if dir:
+		dir.list_dir_begin()
+		var n := dir.get_next()
+		while n != "":
+			if not dir.current_is_dir():
+				match n.get_extension():
+					"m4b":
+						if not Transcoder.has_ogg_for(_m4b_path(n.get_basename())):
+							found[n.get_basename()] = true
+					"aaxc":
+						found[n.get_basename()] = true
+					"part":  # "<asin>.dl.part" / "<asin>.m4b.part"
+						found[n.get_basename().get_basename()] = true
+			n = dir.get_next()
+		dir.list_dir_end()
+	return found.keys()
+
+func _resume_asin(asin: String) -> void:
+	if FileAccess.file_exists(_m4b_path(asin)):
+		_rm(_m4b_part(asin))
+		if not Transcoder.has_ogg_for(_m4b_path(asin)):
+			download_preparing.emit(asin)
+			await Transcoder.pregenerate_ogg(_m4b_path(asin))
+			download_finished.emit(asin, true, "Ready to play.")
+		return
+	if FileAccess.file_exists(_aaxc_path(asin)) and FileAccess.file_exists(_voucher_path(asin)):
+		await _process_from_aaxc(asin)
+		return
+	# Incomplete download (or an aaxc with no voucher we can't use): restart.
+	_rm(_dl_part(asin))
+	if not FileAccess.file_exists(_voucher_path(asin)):
+		_rm(_aaxc_path(asin))
+	if is_signed_in():
+		await download_book({"asin": asin})
 
 ## Lossless decrypt+remux AAXC -> m4b, preserving audio, chapters and cover.
 func _convert_aaxc_to_m4b(aaxc: String, key: String, iv: String, dest: String) -> bool:

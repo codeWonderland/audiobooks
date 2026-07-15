@@ -1,4 +1,4 @@
-[gd_scene load_steps=18 format=3]
+[gd_scene load_steps=16 format=3]
 
 [ext_resource type="Script" path="res://source/player/player_screen.gd" id="1_ply"]
 [ext_resource type="Shader" path="res://assets/shaders/blur.gdshader" id="2_blur"]
@@ -10,9 +10,7 @@
 [ext_resource type="Texture2D" path="res://assets/icons/forward15.svg" id="8_fwd"]
 [ext_resource type="Texture2D" path="res://assets/icons/skip_prev.svg" id="9_prev"]
 [ext_resource type="Texture2D" path="res://assets/icons/skip_next.svg" id="10_next"]
-[ext_resource type="Texture2D" path="res://assets/icons/car.svg" id="11_car"]
 [ext_resource type="Texture2D" path="res://assets/icons/timer.svg" id="12_timer"]
-[ext_resource type="Texture2D" path="res://assets/icons/clip.svg" id="13_clip"]
 
 [sub_resource type="ShaderMaterial" id="bg_mat"]
 shader = ExtResource("2_blur")
@@ -153,20 +151,11 @@ layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 10
 
-[node name="ClipsBtn" type="Button" parent="Frame/Center/Column/Pills"]
-layout_mode = 2
-theme_type_variation = &"Pill"
-text = "Clips & notes"
-
 [node name="DetailsBtn" type="Button" parent="Frame/Center/Column/Pills"]
+unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Pill"
 text = "Title details"
-
-[node name="LogBtn" type="Button" parent="Frame/Center/Column/Pills"]
-layout_mode = 2
-theme_type_variation = &"Pill"
-text = "Listen log"
 
 [node name="GapPills" type="Control" parent="Frame/Center/Column"]
 custom_minimum_size = Vector2(0, 6)
@@ -279,10 +268,12 @@ size_flags_vertical = 3
 [node name="BottomActions" type="HBoxContainer" parent="Frame/Center/Column"]
 custom_minimum_size = Vector2(0, 62)
 layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 80
 
 [node name="SpeedCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_horizontal = 4
 theme_override_constants/separation = 2
 
 [node name="SpeedWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/SpeedCol"]
@@ -300,31 +291,9 @@ theme_type_variation = &"Faint"
 text = "Speed"
 horizontal_alignment = 1
 
-[node name="CarCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 2
-
-[node name="CarWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/CarCol"]
-layout_mode = 2
-
-[node name="CarBtn" type="Button" parent="Frame/Center/Column/BottomActions/CarCol/CarWrap"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(38, 34)
-layout_mode = 2
-alignment = 1
-icon = ExtResource("11_car")
-icon_alignment = 1
-
-[node name="CarLbl" type="Label" parent="Frame/Center/Column/BottomActions/CarCol"]
-layout_mode = 2
-theme_type_variation = &"Faint"
-text = "Car Mode"
-horizontal_alignment = 1
-
 [node name="TimerCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_horizontal = 4
 theme_override_constants/separation = 2
 
 [node name="TimerWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/TimerCol"]
@@ -342,28 +311,6 @@ icon_alignment = 1
 layout_mode = 2
 theme_type_variation = &"Faint"
 text = "Timer"
-horizontal_alignment = 1
-
-[node name="ClipCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
-layout_mode = 2
-size_flags_horizontal = 3
-theme_override_constants/separation = 2
-
-[node name="ClipWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/ClipCol"]
-layout_mode = 2
-
-[node name="ClipBtn" type="Button" parent="Frame/Center/Column/BottomActions/ClipCol/ClipWrap"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(38, 34)
-layout_mode = 2
-alignment = 1
-icon = ExtResource("13_clip")
-icon_alignment = 1
-
-[node name="ClipLbl" type="Label" parent="Frame/Center/Column/BottomActions/ClipCol"]
-layout_mode = 2
-theme_type_variation = &"Faint"
-text = "+ Clip"
 horizontal_alignment = 1
 
 [node name="SpacerR" type="Control" parent="Frame/Center"]
@@ -434,3 +381,162 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
 show_percentage = false
+
+[node name="TitleDetailsPanel" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="TdDim" type="ColorRect" parent="TitleDetailsPanel"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.043, 0.062, 0.09, 0.55)
+
+[node name="Sheet" type="PanelContainer" parent="TitleDetailsPanel"]
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -440.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_type_variation = &"Dialog"
+
+[node name="VBox" type="VBoxContainer" parent="TitleDetailsPanel/Sheet"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="TitleDetailsPanel/Sheet/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="TdClose" type="Button" parent="TitleDetailsPanel/Sheet/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "✕"
+
+[node name="Title" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"Title"
+text = "Title details"
+
+[node name="Scroll" type="ScrollContainer" parent="TitleDetailsPanel/Sheet/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Content" type="VBoxContainer" parent="TitleDetailsPanel/Sheet/VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 8
+
+[node name="TdCover" type="TextureRect" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 240)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 5
+
+[node name="TdTitle" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Title"
+autowrap_mode = 2
+
+[node name="TdAuthor" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 2
+
+[node name="TdNarrator" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 2
+
+[node name="TdSeries" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 2
+
+[node name="TdStats" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Faint"
+autowrap_mode = 2
+
+[node name="Sep" type="HSeparator" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+layout_mode = 2
+
+[node name="TdDescription" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 2
+
+[node name="ChaptersPanel" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="ChDim" type="ColorRect" parent="ChaptersPanel"]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.043, 0.062, 0.09, 0.55)
+
+[node name="Sheet" type="PanelContainer" parent="ChaptersPanel"]
+layout_mode = 1
+anchor_left = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -440.0
+grow_horizontal = 0
+grow_vertical = 2
+theme_type_variation = &"Dialog"
+
+[node name="VBox" type="VBoxContainer" parent="ChaptersPanel/Sheet"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Header" type="HBoxContainer" parent="ChaptersPanel/Sheet/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="ChClose" type="Button" parent="ChaptersPanel/Sheet/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "✕"
+
+[node name="Title" type="Label" parent="ChaptersPanel/Sheet/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"Title"
+text = "Chapters"
+
+[node name="Scroll" type="ScrollContainer" parent="ChaptersPanel/Sheet/VBox"]
+layout_mode = 2
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="ChapterList" type="VBoxContainer" parent="ChaptersPanel/Sheet/VBox/Scroll"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2

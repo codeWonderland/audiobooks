@@ -1,9 +1,10 @@
 extends Control
 ## Full-screen "now playing" view modelled on the Audible player: frosted cover
-## backdrop, large artwork, chapter label, action pills, an orange scrubber with
-## elapsed / time-left / remaining, the transport row (prev · -30 · play · +30 ·
-## next) and a bottom row (Speed · Car Mode · Timer · + Clip).
+## backdrop, large artwork, chapter label, a Title-details pill, an orange
+## scrubber with elapsed / time-left / remaining, the transport row (prev · -15 ·
+## play · +15 · next) and a bottom row (Speed · Timer).
 ##
+## The chapter label and Title-details pill open right-hand side panels.
 ## All playback state lives in the Player autoload; this screen just renders it
 ## and forwards user intent.
 
@@ -30,13 +31,30 @@ const SLEEP_OPTIONS := [0, 5, 15, 30, 45, 60]  # minutes; 0 = off
 @onready var _fwd_btn: Button = %Fwd15Btn
 @onready var _next_btn: Button = %NextBtn
 @onready var _speed_btn: Button = %SpeedBtn
-@onready var _car_btn: Button = %CarBtn
 @onready var _timer_btn: Button = %TimerBtn
-@onready var _clip_btn: Button = %ClipBtn
+@onready var _details_btn: Button = %DetailsBtn
 @onready var _toast: Label = %Toast
 @onready var _loading: Control = %LoadingOverlay
 @onready var _loading_bar: ProgressBar = %LoadingBar
 @onready var _loading_label: Label = %LoadingLabel
+
+# Title-details side panel
+@onready var _td_panel: Control = %TitleDetailsPanel
+@onready var _td_close: Button = %TdClose
+@onready var _td_dim: ColorRect = %TdDim
+@onready var _td_cover: TextureRect = %TdCover
+@onready var _td_title: Label = %TdTitle
+@onready var _td_author: Label = %TdAuthor
+@onready var _td_narrator: Label = %TdNarrator
+@onready var _td_series: Label = %TdSeries
+@onready var _td_stats: Label = %TdStats
+@onready var _td_description: Label = %TdDescription
+
+# Chapters side panel
+@onready var _ch_panel: Control = %ChaptersPanel
+@onready var _ch_close: Button = %ChClose
+@onready var _ch_dim: ColorRect = %ChDim
+@onready var _ch_list: VBoxContainer = %ChapterList
 
 var _user_seeking := false
 var _updating := false
@@ -53,8 +71,11 @@ func _ready() -> void:
 	_speed_btn.pressed.connect(_cycle_speed)
 	_timer_btn.pressed.connect(_cycle_sleep)
 	_chapter_btn.pressed.connect(_open_chapters)
-	_car_btn.pressed.connect(func(): _show_toast("Car Mode coming soon"))
-	_clip_btn.pressed.connect(func(): _show_toast("Clips coming soon"))
+	_details_btn.pressed.connect(_open_details)
+	_td_close.pressed.connect(func(): _td_panel.visible = false)
+	_ch_close.pressed.connect(func(): _ch_panel.visible = false)
+	_td_dim.gui_input.connect(func(e): _dim_closes(e, _td_panel))
+	_ch_dim.gui_input.connect(func(e): _dim_closes(e, _ch_panel))
 
 	_scrubber.drag_started.connect(func(): _user_seeking = true)
 	_scrubber.drag_ended.connect(_on_drag_ended)
@@ -187,20 +208,56 @@ func _on_sleep_tick() -> void:
 func _elapsed_seconds() -> float:
 	return Time.get_ticks_msec() / 1000.0
 
+# --- Side panels ------------------------------------------------------------
+
+func _dim_closes(event: InputEvent, panel: Control) -> void:
+	if event is InputEventMouseButton and event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+		panel.visible = false
+
+func _open_details() -> void:
+	var book := Player.current_book
+	if book == null:
+		return
+	var tex := Library.cover_texture(book)
+	_td_cover.texture = tex if tex != null else PLACEHOLDER
+	_td_title.text = book._display_title()
+	_td_author.text = "by %s" % (book.author if not book.author.is_empty() else "Unknown author")
+	_td_narrator.text = "Narrated by %s" % book.narrator
+	_td_narrator.visible = not book.narrator.is_empty()
+	_td_series.text = book.series
+	_td_series.visible = not book.series.is_empty() and book.series != book.title
+	_td_stats.text = "%s · %d chapter%s · %s" % [
+		Fmt.duration(book.duration), book.chapters.size(),
+		"" if book.chapters.size() == 1 else "s", book.format.to_upper()]
+	_td_description.text = book.description
+	_td_description.visible = not book.description.is_empty()
+	_td_panel.visible = true
+
 func _open_chapters() -> void:
 	var book := Player.current_book
 	if book == null or book.chapters.is_empty():
 		_show_toast("No chapters in this book")
 		return
-	var menu := PopupMenu.new()
-	add_child(menu)
+	for c in _ch_list.get_children():
+		c.queue_free()
+	var current := Player.current_chapter()
 	for i in book.chapters.size():
-		menu.add_item(book.chapters[i].title, i)
-	menu.id_pressed.connect(func(id): Player.seek(book.chapters[id].start))
-	menu.close_requested.connect(func(): menu.queue_free())
-	menu.popup_hide.connect(func(): menu.queue_free())
-	menu.position = get_viewport().get_mouse_position()
-	menu.popup()
+		_ch_list.add_child(_make_chapter_row(book.chapters[i], i, i == current))
+	_ch_panel.visible = true
+
+func _make_chapter_row(chapter: Dictionary, index: int, is_current: bool) -> Button:
+	var btn := Button.new()   # base flat button from the theme
+	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	btn.clip_text = true
+	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	btn.text = "%d.  %s  ·  %s" % [index + 1, chapter.title, Fmt.clock(chapter.start)]
+	if is_current:
+		btn.add_theme_color_override("font_color", Palette.ACCENT)
+		btn.add_theme_color_override("font_hover_color", Palette.ACCENT)
+	btn.pressed.connect(func():
+		Player.seek(chapter.start)
+		_ch_panel.visible = false)
+	return btn
 
 # --- Toast + input ----------------------------------------------------------
 
@@ -215,6 +272,14 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not visible:
 		return
 	if event is InputEventKey and event.pressed and not event.echo:
+		# Escape closes an open side panel first.
+		if event.keycode == KEY_ESCAPE and (_td_panel.visible or _ch_panel.visible):
+			_td_panel.visible = false
+			_ch_panel.visible = false
+			accept_event()
+			return
+		if _td_panel.visible or _ch_panel.visible:
+			return  # don't drive transport while a panel is open
 		match event.keycode:
 			KEY_SPACE:
 				Player.toggle()

@@ -70,6 +70,7 @@ func _ready() -> void:
 	Audible.state_changed.connect(_on_audible_state)
 	Audible.download_progress.connect(_on_dl_progress)
 	Audible.download_converting.connect(_on_dl_converting)
+	Audible.download_preparing.connect(_on_dl_preparing)
 	Audible.download_finished.connect(_on_dl_finished)
 
 	_mini_play.pressed.connect(Player.toggle)
@@ -358,6 +359,10 @@ func _on_dl_progress(asin: String, ratio: float) -> void:
 func _on_dl_converting(asin: String) -> void:
 	if _is_selected_asin(asin):
 		_sb_play.text = "Converting…"
+
+func _on_dl_preparing(asin: String) -> void:
+	if _is_selected_asin(asin):
+		_sb_play.text = "Preparing audio…"
 
 func _on_dl_finished(asin: String, success: bool, message: String) -> void:
 	if success:
