@@ -179,6 +179,17 @@ func get_position() -> float:
 func get_length() -> float:
 	return _length
 
+## Absolute [start, end] seconds of the current chapter, or the whole book if
+## the file has no chapter metadata. Used to scope the player scrubber to the
+## current chapter (elapsed/remaining are chapter-relative; "time left" is not).
+func chapter_bounds() -> Vector2:
+	if current_book == null or current_book.chapters.is_empty() or _length <= 0.0:
+		return Vector2(0.0, maxf(_length, 1.0))
+	var c := current_book.chapters[current_chapter()]
+	var start: float = clampf(c.start, 0.0, _length)
+	var end: float = clampf(c.end, start + 0.1, _length)
+	return Vector2(start, end)
+
 # --- Chapters ---------------------------------------------------------------
 
 func current_chapter() -> int:

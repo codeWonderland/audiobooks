@@ -86,8 +86,18 @@ func _on_book_changed(book: Book) -> void:
 	_bg_cover.texture = tex
 	_bg_cover.visible = tex != null
 	_chapter_btn.text = book._display_title()
+	# Initial chapter-scoped display (first chapter, or whole book if none).
+	var start := 0.0
+	var end := book.duration
+	if not book.chapters.is_empty():
+		end = book.chapters[0].end
+	_updating = true
+	_scrubber.min_value = start
+	_scrubber.max_value = maxf(start + 1.0, end)
+	_scrubber.value = start
+	_updating = false
 	_elapsed.text = Fmt.clock(0)
-	_remaining.text = "-" + Fmt.clock(book.duration)
+	_remaining.text = "-" + Fmt.clock(end - start)
 	_left.text = Fmt.time_left(book.duration)
 
 func _on_state_changed(playing: bool) -> void:
@@ -96,19 +106,22 @@ func _on_state_changed(playing: bool) -> void:
 func _on_position_changed(pos: float, length: float) -> void:
 	if _user_seeking:
 		return
+	# The scrubber tracks progress within the current chapter, not the whole book.
+	var b := Player.chapter_bounds()
 	_updating = true
-	_scrubber.max_value = maxf(1.0, length)
-	_scrubber.value = pos
+	_scrubber.min_value = b.x
+	_scrubber.max_value = b.y
+	_scrubber.value = clampf(pos, b.x, b.y)
 	_updating = false
-	_update_time_labels(pos, length)
+	_update_time_labels(pos, length, b)
 	_chapter_btn.text = Player.chapter_title()
 
-func _update_time_labels(pos: float, length: float) -> void:
-	var remaining := maxf(0.0, length - pos)
-	_elapsed.text = Fmt.clock(pos)
-	_remaining.text = "-" + Fmt.clock(remaining)
-	# "time left" accounts for playback speed, like Audible.
-	_left.text = Fmt.time_left(remaining / maxf(0.1, Player.get_speed()))
+func _update_time_labels(pos: float, length: float, bounds: Vector2) -> void:
+	# Elapsed / remaining are chapter-relative; "time left" is the whole book.
+	_elapsed.text = Fmt.clock(pos - bounds.x)
+	_remaining.text = "-" + Fmt.clock(maxf(0.0, bounds.y - pos))
+	var book_left := maxf(0.0, length - pos)
+	_left.text = Fmt.time_left(book_left / maxf(0.1, Player.get_speed()))
 
 func _on_loading_changed(active: bool, ratio: float) -> void:
 	_loading.visible = active
@@ -123,7 +136,10 @@ func _on_speed_changed(speed: float) -> void:
 func _on_scrub_value(v: float) -> void:
 	if _updating:
 		return
-	_update_time_labels(v, _scrubber.max_value)
+	# v is an absolute position within the current chapter's [min, max].
+	var b := Player.chapter_bounds()
+	_elapsed.text = Fmt.clock(v - b.x)
+	_remaining.text = "-" + Fmt.clock(maxf(0.0, b.y - v))
 	if not _user_seeking:
 		Player.seek(v)  # a click on the track (no drag)
 

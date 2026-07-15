@@ -3,7 +3,7 @@
 [ext_resource type="Script" path="res://source/player/player_screen.gd" id="1_ply"]
 [ext_resource type="Shader" path="res://assets/shaders/blur.gdshader" id="2_blur"]
 [ext_resource type="Shader" path="res://assets/shaders/rounded.gdshader" id="3_round"]
-[ext_resource type="Texture2D" path="res://assets/icons/chevron_down.svg" id="4_chev"]
+[ext_resource type="Texture2D" path="res://assets/icons/back.svg" id="4_back"]
 [ext_resource type="Texture2D" path="res://assets/icons/list.svg" id="5_list"]
 [ext_resource type="Texture2D" path="res://assets/icons/play.svg" id="6_play"]
 [ext_resource type="Texture2D" path="res://assets/icons/replay30.svg" id="7_back"]
@@ -109,11 +109,12 @@ layout_mode = 2
 
 [node name="CloseBtn" type="Button" parent="Frame/Center/Column/TopBar"]
 unique_name_in_owner = true
-custom_minimum_size = Vector2(44, 44)
+custom_minimum_size = Vector2(0, 44)
 layout_mode = 2
-alignment = 1
-icon = ExtResource("4_chev")
-icon_alignment = 1
+text = "Back"
+icon = ExtResource("4_back")
+alignment = 0
+icon_alignment = 0
 
 [node name="TopSpacer" type="Control" parent="Frame/Center/Column/TopBar"]
 layout_mode = 2

@@ -5,8 +5,11 @@ extends Control
 ## double-click); Main handles the switch to the player screen.
 
 signal play_requested(book: Book)
+signal show_player_requested   ## open the full player for the already-loaded book
 
 const BookCardScene := preload("res://source/library/book_card.tscn")
+const PLAY_ICON := preload("res://assets/icons/play.svg")
+const PAUSE_ICON := preload("res://assets/icons/pause.svg")
 
 @onready var _open_btn: Button = %OpenFolderBtn
 @onready var _folder_label: Label = %FolderLabel
@@ -27,6 +30,13 @@ const BookCardScene := preload("res://source/library/book_card.tscn")
 @onready var _sb_progress: Label = %SbProgress
 @onready var _sb_play: Button = %SbPlayBtn
 
+@onready var _mini: PanelContainer = %MiniPlayer
+@onready var _mini_cover: TextureRect = %MiniCover
+@onready var _mini_title: Label = %MiniTitle
+@onready var _mini_chapter: Label = %MiniChapter
+@onready var _mini_play: Button = %MiniPlayBtn
+@onready var _mini_progress: ProgressBar = %MiniProgress
+
 const PLACEHOLDER := preload("res://assets/icons/book_placeholder.svg")
 
 var _cards: Array[Node] = []
@@ -42,7 +52,14 @@ func _ready() -> void:
 	Library.scan_progress.connect(_on_scan_progress)
 	Library.scan_finished.connect(_on_scan_finished)
 
+	_mini_play.pressed.connect(Player.toggle)
+	_mini.gui_input.connect(_on_mini_input)
+	Player.book_changed.connect(_on_player_book_changed)
+	Player.state_changed.connect(_on_player_state_changed)
+	Player.position_changed.connect(_on_player_position_changed)
+
 	_scan_bar.visible = false
+	_update_mini()
 	_show_sidebar_empty()
 
 	var folder := Settings.get_library_folder()
@@ -153,7 +170,19 @@ func _populate_sidebar(book: Book) -> void:
 	_sb_description.text = book.description
 	_sb_description.visible = not book.description.is_empty()
 
-	if Settings.has_progress(book.id):
+	_update_sidebar_play(book)
+
+## Sets the sidebar's action button + progress line to reflect whether the book
+## is the one currently loaded in the Player, resuming, or fresh.
+func _update_sidebar_play(book: Book) -> void:
+	if book == null:
+		return
+	if _is_current(book):
+		_sb_play.text = "Currently playing"
+		var pos := Player.get_position()
+		_sb_progress.text = "%s · %s" % [Player.chapter_title(), Fmt.clock(pos)]
+		_sb_progress.visible = true
+	elif Settings.has_progress(book.id):
 		var pos := Settings.get_position(book.id)
 		var left := maxf(0.0, book.duration - pos)
 		_sb_progress.text = "Resume · %s (%s left)" % [Fmt.clock(pos), Fmt.duration(left)]
@@ -163,6 +192,53 @@ func _populate_sidebar(book: Book) -> void:
 		_sb_progress.visible = false
 		_sb_play.text = "Play"
 
+func _is_current(book: Book) -> bool:
+	return Player.current_book != null and Player.current_book.id == book.id \
+			and Player.has_stream()
+
 func _on_sidebar_play() -> void:
-	if _selected != null:
+	if _selected == null:
+		return
+	if _is_current(_selected):
+		show_player_requested.emit()  # already loaded — just open the player
+	else:
 		play_requested.emit(_selected)
+
+# --- Mini player ------------------------------------------------------------
+
+func _update_mini() -> void:
+	var book := Player.current_book
+	if book == null or not Player.has_stream():
+		_mini.visible = false
+		return
+	_mini.visible = true
+	var tex := Library.cover_texture(book)
+	_mini_cover.texture = tex if tex != null else PLACEHOLDER
+	_mini_title.text = book._display_title()
+	_mini_chapter.text = Player.chapter_title()
+	_mini_play.icon = PAUSE_ICON if Player.is_playing() else PLAY_ICON
+
+func _on_mini_input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_LEFT:
+		show_player_requested.emit()
+
+func _on_player_book_changed(_book: Book) -> void:
+	_update_mini()
+	if _selected != null:
+		_update_sidebar_play(_selected)
+
+func _on_player_state_changed(_playing: bool) -> void:
+	# state_changed also fires once the stream finishes loading, so this is where
+	# the mini player first becomes visible (book_changed fires before load).
+	_update_mini()
+	if _selected != null:
+		_update_sidebar_play(_selected)
+
+func _on_player_position_changed(pos: float, length: float) -> void:
+	if not _mini.visible:
+		return
+	_mini_chapter.text = Player.chapter_title()
+	_mini_progress.value = (pos / length) * 100.0 if length > 0.0 else 0.0
+	if _selected != null and _is_current(_selected):
+		_sb_progress.text = "%s · %s" % [Player.chapter_title(), Fmt.clock(pos)]

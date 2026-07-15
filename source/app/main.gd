@@ -8,6 +8,7 @@ extends Control
 
 func _ready() -> void:
 	_library.play_requested.connect(_on_play_requested)
+	_library.show_player_requested.connect(_show_player)
 	_player.closed.connect(_show_library)
 	_show_library()
 
