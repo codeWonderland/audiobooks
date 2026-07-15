@@ -23,7 +23,9 @@ func setup(e: Dictionary) -> void:
 	_author.text = author if not author.is_empty() else "Unknown author"
 	var downloaded: bool = e.get("downloaded", false)
 	_badge.visible = not downloaded
-	_cover.modulate = Color(1, 1, 1, 1) if downloaded else Color(1, 1, 1, 0.45)
+	# self_modulate dims only the cover texture, not the badge child (modulate
+	# would propagate to children and fade the badge's text/icon too).
+	_cover.self_modulate = Color(1, 1, 1, 1) if downloaded else Color(1, 1, 1, 0.45)
 	var book = e.get("book", null)
 	if book != null:
 		var tex := Library.cover_texture(book)
