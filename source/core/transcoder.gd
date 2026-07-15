@@ -38,6 +38,15 @@ func playable_path(book: Book) -> String:
 func is_busy() -> bool:
 	return _pid != -1
 
+## Whether ffmpeg + ffprobe are callable on the user's PATH. Used at startup to
+## warn if the one external dependency is missing.
+func ffmpeg_available() -> bool:
+	return _tool_ok("ffmpeg") and _tool_ok("ffprobe")
+
+func _tool_ok(tool_name: String) -> bool:
+	var out: Array = []
+	return OS.execute(tool_name, ["-version"], out, false) == 0
+
 # --- Playback-cache pre-generation ------------------------------------------
 
 func ogg_cache_path(book_id: String) -> String:

@@ -7,6 +7,7 @@ extends Control
 @onready var _player: Control = %PlayerScreen
 @onready var _settings: Control = %SettingsScreen
 @onready var _login: Control = %AudibleLogin
+@onready var _ffmpeg_notice: Control = %FfmpegNotice
 
 func _ready() -> void:
 	_library.play_requested.connect(_on_play_requested)
@@ -17,9 +18,13 @@ func _ready() -> void:
 	_settings.changed.connect(_library.refresh_current)
 	_settings.connect_requested.connect(_show_login)
 	_login.closed.connect(_hide_login)
+	_ffmpeg_notice.closed.connect(func(): _ffmpeg_notice.visible = false)
 	# Activation bytes arriving (login or manual) unlocks books — refresh sidebar.
 	Audible.activation_fetched.connect(func(_ok, _m): _library.refresh_current())
 	_show_library()
+	# ffmpeg is the one external dependency; warn (with OS-specific help) if absent.
+	if not Transcoder.ffmpeg_available():
+		_ffmpeg_notice.visible = true
 
 func _show_settings() -> void:
 	_settings.refresh()

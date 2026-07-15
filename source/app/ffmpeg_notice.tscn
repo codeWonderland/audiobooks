@@ -1,0 +1,109 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://source/app/ffmpeg_notice.gd" id="1_ff"]
+
+[node name="FfmpegNotice" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_ff")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.043, 0.062, 0.09, 0.7)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(540, 0)
+layout_mode = 2
+theme_type_variation = &"Dialog"
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Header" type="HBoxContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="CloseBtn" type="Button" parent="Center/Panel/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "✕"
+
+[node name="Title" type="Label" parent="Center/Panel/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+theme_type_variation = &"Title"
+text = "ffmpeg is required"
+
+[node name="Body" type="Label" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 2
+
+[node name="InstallLabel" type="Label" parent="Center/Panel/VBox"]
+layout_mode = 2
+text = "Install it, then click Recheck:"
+
+[node name="CmdRow" type="HBoxContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="CmdEdit" type="LineEdit" parent="Center/Panel/VBox/CmdRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+editable = false
+
+[node name="CopyBtn" type="Button" parent="Center/Panel/VBox/CmdRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Pill"
+text = "Copy"
+
+[node name="Note" type="Label" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Faint"
+autowrap_mode = 2
+
+[node name="Status" type="Label" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Faint"
+
+[node name="Sep" type="HSeparator" parent="Center/Panel/VBox"]
+layout_mode = 2
+
+[node name="Buttons" type="HBoxContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="OpenBtn" type="Button" parent="Center/Panel/VBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Pill"
+text = "Open ffmpeg.org"
+
+[node name="Spacer" type="Control" parent="Center/Panel/VBox/Buttons"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RecheckBtn" type="Button" parent="Center/Panel/VBox/Buttons"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Primary"
+text = "Recheck"
