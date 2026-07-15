@@ -29,7 +29,7 @@ const TAB_DOWNLOADED := 1
 @onready var _empty_state: Label = %EmptyState
 
 @onready var _sb_empty: Label = %SidebarEmpty
-@onready var _sb_content: Control = %SidebarContent
+@onready var _detail_scroll: Control = %DetailScroll
 @onready var _sb_cover: TextureRect = %SbCover
 @onready var _sb_title: Label = %SbTitle
 @onready var _sb_author: Label = %SbAuthor
@@ -248,11 +248,11 @@ func _select(entry: Dictionary, card: Node) -> void:
 
 func _show_sidebar_empty() -> void:
 	_sb_empty.visible = true
-	_sb_content.visible = false
+	_detail_scroll.visible = false
 
 func _populate_sidebar(entry: Dictionary) -> void:
 	_sb_empty.visible = false
-	_sb_content.visible = true
+	_detail_scroll.visible = true
 	var book = entry.get("book")
 	if book != null:
 		var tex := Library.cover_texture(book)
