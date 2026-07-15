@@ -1,15 +1,16 @@
 extends Node
-## Scans a chosen folder for open-format audiobooks (mp3, m4b), reads metadata
-## and chapters with ffprobe, and extracts embedded cover art with ffmpeg.
-## Registered as the "Library" autoload.
+## Scans for audiobooks (mp3, m4b, aax, aaxc), reads metadata and chapters with
+## ffprobe, and extracts embedded cover art with ffmpeg. Registered as the
+## "Library" autoload.
+##
+## Two roots are scanned and merged: the app's own download folder
+## (user://books, where Audible downloads land) which is always included, plus
+## an optional user-chosen custom folder from Settings.
 ##
 ## Scanning happens on a worker thread; results are marshalled back to the main
 ## thread via call_deferred so UI code can rely on main-thread signal delivery.
 ## Probe results + covers are cached under user://cache keyed by a stable book
 ## id (path + size), making subsequent scans effectively instant.
-##
-## NOTE: only open formats are handled today. DRM'd AAX (Audible) decoding is a
-## planned future addition — see fmt/decode isolation in Transcoder.
 
 signal scan_started(total: int)
 signal book_found(book: Book)
@@ -33,17 +34,36 @@ func cache_dir(sub: String) -> String:
 	DirAccess.make_dir_recursive_absolute(p)
 	return ProjectSettings.globalize_path(p)
 
+## Where Audible downloads are stored (always scanned). Real OS path.
+func download_dir() -> String:
+	DirAccess.make_dir_recursive_absolute("user://books")
+	return ProjectSettings.globalize_path("user://books")
+
+## The folders scanned by rescan(): the app download folder plus, if set and
+## still present, the user's custom folder.
+func roots() -> Array[String]:
+	var out: Array[String] = [download_dir()]
+	var custom := Settings.get_library_folder()
+	if not custom.is_empty() and DirAccess.dir_exists_absolute(custom) \
+			and custom.simplify_path() != download_dir().simplify_path():
+		out.append(custom)
+	return out
+
 # --- Scanning ---------------------------------------------------------------
 
-func scan(folder: String) -> void:
+## Rescan all roots (download folder + optional custom folder).
+func rescan() -> void:
+	scan(roots())
+
+func scan(scan_roots: Array[String]) -> void:
 	if _thread and _thread.is_started():
 		_thread.wait_to_finish()
 	books.clear()
 	_thread = Thread.new()
-	_thread.start(_scan_thread.bind(folder))
+	_thread.start(_scan_thread.bind(scan_roots))
 
-func _scan_thread(folder: String) -> void:
-	var files := _gather_files(folder)
+func _scan_thread(scan_roots: Array) -> void:
+	var files := _gather_files(scan_roots)
 	call_deferred("_emit_started", files.size())
 	var done := 0
 	for path in files:
@@ -55,9 +75,12 @@ func _scan_thread(folder: String) -> void:
 			call_deferred("_emit_progress", done, files.size())
 	call_deferred("_emit_finished")
 
-func _gather_files(folder: String) -> Array[String]:
+func _gather_files(scan_roots: Array) -> Array[String]:
 	var result: Array[String] = []
-	var stack: Array[String] = [folder]
+	var seen := {}
+	var stack: Array[String] = []
+	for r in scan_roots:
+		stack.append(r)
 	while not stack.is_empty():
 		var dir_path: String = stack.pop_back()
 		var dir := DirAccess.open(dir_path)
@@ -70,7 +93,8 @@ func _gather_files(folder: String) -> Array[String]:
 				var full := dir_path.path_join(name)
 				if dir.current_is_dir():
 					stack.push_back(full)
-				elif AUDIO_EXTS.has(name.get_extension().to_lower()):
+				elif AUDIO_EXTS.has(name.get_extension().to_lower()) and not seen.has(full):
+					seen[full] = true
 					result.append(full)
 			name = dir.get_next()
 		dir.list_dir_end()

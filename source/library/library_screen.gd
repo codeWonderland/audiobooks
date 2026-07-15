@@ -7,6 +7,7 @@ extends Control
 signal play_requested(book: Book)
 signal show_player_requested   ## open the full player for the already-loaded book
 signal settings_requested      ## open the settings screen
+signal audible_library_requested  ## open the Audible cloud-library browser
 
 const BookCardScene := preload("res://source/library/book_card.tscn")
 const PLAY_ICON := preload("res://assets/icons/play.svg")
@@ -14,6 +15,7 @@ const PAUSE_ICON := preload("res://assets/icons/pause.svg")
 
 @onready var _open_btn: Button = %OpenFolderBtn
 @onready var _settings_btn: Button = %SettingsBtn
+@onready var _audible_btn: Button = %AudibleBtn
 @onready var _folder_label: Label = %FolderLabel
 @onready var _status: Label = %StatusLabel
 @onready var _scan_bar: ProgressBar = %ScanBar
@@ -49,6 +51,9 @@ var _dialog: FileDialog
 func _ready() -> void:
 	_open_btn.pressed.connect(_pick_folder)
 	_settings_btn.pressed.connect(func(): settings_requested.emit())
+	_audible_btn.pressed.connect(func(): audible_library_requested.emit())
+	_audible_btn.visible = Audible.is_signed_in()
+	Audible.state_changed.connect(func(): _audible_btn.visible = Audible.is_signed_in())
 	_sb_play.pressed.connect(_on_sidebar_play)
 	Library.scan_started.connect(_on_scan_started)
 	Library.book_found.connect(_add_card)
@@ -64,13 +69,7 @@ func _ready() -> void:
 	_scan_bar.visible = false
 	_update_mini()
 	_show_sidebar_empty()
-
-	var folder := Settings.get_library_folder()
-	if not folder.is_empty() and DirAccess.dir_exists_absolute(folder):
-		_start_scan(folder)
-	else:
-		_folder_label.text = "No folder selected"
-		_empty_state.visible = true
+	_rescan()
 
 # --- Folder picking / scanning ---------------------------------------------
 
@@ -89,10 +88,11 @@ func _pick_folder() -> void:
 
 func _on_dir_selected(dir: String) -> void:
 	Settings.set_library_folder(dir)
-	_start_scan(dir)
+	_rescan()
 
-func _start_scan(folder: String) -> void:
-	_folder_label.text = folder
+## Rescan the app download folder + optional custom folder.
+func _rescan() -> void:
+	_update_folder_label()
 	_empty_state.visible = false
 	for c in _cards:
 		c.queue_free()
@@ -100,7 +100,14 @@ func _start_scan(folder: String) -> void:
 	_selected = null
 	_selected_card = null
 	_show_sidebar_empty()
-	Library.scan(folder)
+	Library.rescan()
+
+func _update_folder_label() -> void:
+	var custom := Settings.get_library_folder()
+	if not custom.is_empty() and DirAccess.dir_exists_absolute(custom):
+		_folder_label.text = "Downloads + " + custom
+	else:
+		_folder_label.text = "Downloaded books"
 
 func _on_scan_started(total: int) -> void:
 	_empty_state.visible = false
@@ -117,7 +124,7 @@ func _on_scan_finished(books: Array) -> void:
 	_scan_bar.visible = false
 	if books.is_empty():
 		_status.text = ""
-		_empty_state.text = "No mp3 or m4b audiobooks found in this folder."
+		_empty_state.text = "No audiobooks yet. Connect your Audible account to download your library, or open a folder of mp3/m4b files."
 		_empty_state.visible = true
 	else:
 		_status.text = "%d book%s" % [books.size(), "" if books.size() == 1 else "s"]
@@ -219,6 +226,10 @@ func _on_sidebar_play() -> void:
 func refresh_current() -> void:
 	if _selected != null:
 		_update_sidebar_play(_selected)
+
+## Rescan from disk (e.g. after downloading new books from Audible).
+func reload() -> void:
+	_rescan()
 
 # --- Mini player ------------------------------------------------------------
 

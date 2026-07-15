@@ -13,6 +13,9 @@ extends Node
 signal login_completed(success: bool, message: String)
 signal activation_fetched(success: bool, message: String)
 signal state_changed
+signal library_synced(items: Array, message: String)
+signal download_progress(asin: String, ratio: float)
+signal download_finished(asin: String, success: bool, message: String)
 
 const DEVICE_TYPE := "A2CZJZGLK2JJVM"
 const AUTH_PATH := "user://audible/auth.json"
@@ -209,6 +212,170 @@ func _extract_activation_bytes(blob: PackedByteArray) -> String:
 	if key.size() < 4:
 		return ""
 	return "%08x" % key.decode_u32(0)             # first 4 bytes, little-endian
+
+# --- Library sync -----------------------------------------------------------
+
+func _api_domain() -> String:
+	return MARKETS.get(country(), {"domain": "com"}).domain
+
+## Fetch the account's library; emits library_synced(items, message).
+func sync_library() -> void:
+	if not is_signed_in():
+		library_synced.emit([], "Not connected.")
+		return
+	var groups := "contributors,product_desc,product_attrs,media,series"
+	var path := "/1.0/library?response_groups=%s&num_results=1000&page=1&sort_by=-PurchaseDate" % groups
+	var resp := await _api_get(path)
+	if not resp.ok:
+		push_warning("Audible library HTTP %s: %s" % [resp.status, (resp.body as PackedByteArray).get_string_from_utf8()])
+		library_synced.emit([], "Couldn't fetch your library (HTTP %s)." % resp.status)
+		return
+	var parsed = JSON.parse_string((resp.body as PackedByteArray).get_string_from_utf8())
+	var items: Array = []
+	if parsed is Dictionary:
+		for it in parsed.get("items", []):
+			items.append(_map_item(it))
+	library_synced.emit(items, "%d title%s in your Audible library." % [items.size(), "" if items.size() == 1 else "s"])
+
+func _map_item(it: Dictionary) -> Dictionary:
+	var authors := PackedStringArray()
+	for a in it.get("authors", []):
+		authors.append(a.get("name", ""))
+	var narrators := PackedStringArray()
+	for n in it.get("narrators", []):
+		narrators.append(n.get("name", ""))
+	var cover := ""
+	var imgs = it.get("product_images", {})
+	if imgs is Dictionary and not imgs.is_empty():
+		cover = imgs.get("500", imgs.values()[0])
+	var series := ""
+	var ser = it.get("series", [])
+	if ser is Array and not ser.is_empty():
+		series = ser[0].get("title", "")
+	var asin := str(it.get("asin", ""))
+	return {
+		"asin": asin,
+		"title": it.get("title", ""),
+		"subtitle": it.get("subtitle", ""),
+		"authors": ", ".join(authors),
+		"narrators": ", ".join(narrators),
+		"runtime_min": int(it.get("runtime_length_min", 0)),
+		"cover_url": cover,
+		"series": series,
+		"downloaded": FileAccess.file_exists(book_path(asin)),
+	}
+
+## Path where a downloaded book for `asin` lives (named by asin for dedup).
+func book_path(asin: String) -> String:
+	return Library.download_dir().path_join(asin + ".aaxc")
+
+# --- Download + license + voucher -------------------------------------------
+
+## Download a library item into the app books folder and write its voucher.
+func download_book(item: Dictionary) -> void:
+	var asin := str(item.get("asin", ""))
+	if asin.is_empty():
+		download_finished.emit(asin, false, "Missing asin.")
+		return
+	if FileAccess.file_exists(book_path(asin)):
+		download_finished.emit(asin, true, "Already downloaded.")
+		return
+	var lic := await _get_license(asin)
+	if not lic.get("ok", false):
+		download_finished.emit(asin, false, lic.get("error", "License request failed."))
+		return
+	var dest := book_path(asin)
+	var part := dest + ".part"
+	var ok := await _download_file(lic.url, part, asin)
+	if not ok:
+		if FileAccess.file_exists(part):
+			DirAccess.remove_absolute(part)
+		download_finished.emit(asin, false, "Download failed.")
+		return
+	DirAccess.rename_absolute(part, dest)
+	var vf := FileAccess.open(dest.get_basename() + ".voucher", FileAccess.WRITE)
+	if vf:
+		vf.store_string(JSON.stringify({"key": lic.key, "iv": lic.iv}))
+	download_finished.emit(asin, true, "Downloaded.")
+
+func _get_license(asin: String) -> Dictionary:
+	var body := JSON.stringify({
+		"supported_drm_types": ["Mpeg", "Adrm"],
+		"quality": "High",
+		"consumption_type": "Download",
+		"response_groups": "content_reference,chapter_info",
+	})
+	var resp := await _api_post("/1.0/content/%s/licenserequest" % asin, body)
+	if not resp.ok:
+		push_warning("Audible license HTTP %s: %s" % [resp.status, (resp.body as PackedByteArray).get_string_from_utf8()])
+		return {"ok": false, "error": "License request failed (HTTP %s)." % resp.status}
+	var parsed = JSON.parse_string((resp.body as PackedByteArray).get_string_from_utf8())
+	var cl = parsed.get("content_license", {}) if parsed is Dictionary else {}
+	var meta = cl.get("content_metadata", {})
+	var url: String = meta.get("content_url", {}).get("offline_url", "")
+	var lr: String = cl.get("license_response", "")
+	if url.is_empty() or lr.is_empty():
+		var reason = cl.get("message", cl.get("status_code", "incomplete license"))
+		return {"ok": false, "error": "License response %s." % reason}
+	var voucher := _decrypt_voucher(lr, str(cl.get("asin", asin)))
+	if voucher.is_empty():
+		return {"ok": false, "error": "Could not decrypt the download voucher."}
+	return {"ok": true, "url": url, "key": voucher.key, "iv": voucher.iv}
+
+## Derives the AAXC key/iv per docs/audible-protocol.md §6.
+func _decrypt_voucher(license_response_b64: String, asin: String) -> Dictionary:
+	var di: Dictionary = _auth.get("device_info", {})
+	var device_type: String = di.get("device_type", DEVICE_TYPE)
+	var serial: String = di.get("device_serial_number", _auth.get("device_serial", ""))
+	var customer_id: String = _auth.get("customer_info", {}).get("user_id", "")
+	var buf := (device_type + serial + customer_id + asin).to_utf8_buffer()
+	var digest := _sha256(buf)
+	var enc := Marshalls.base64_to_raw(license_response_b64)
+	if enc.is_empty() or enc.size() % 16 != 0:
+		return {}
+	var aes := AESContext.new()
+	aes.start(AESContext.MODE_CBC_DECRYPT, digest.slice(0, 16), digest.slice(16, 32))
+	var dec := aes.update(enc)
+	aes.finish()
+	var s := dec.get_string_from_utf8()
+	var close := s.rfind("}")
+	if close == -1:
+		return {}
+	var parsed = JSON.parse_string(s.substr(0, close + 1))
+	if parsed is Dictionary and parsed.has("key") and parsed.has("iv"):
+		return {"key": str(parsed.key), "iv": str(parsed.iv)}
+	return {}
+
+func _api_get(path: String) -> Dictionary:
+	return await _http("https://api.audible.%s%s" % [_api_domain(), path],
+			_sign_headers("GET", path, ""), HTTPClient.METHOD_GET, "")
+
+func _api_post(path: String, body: String) -> Dictionary:
+	var headers := _sign_headers("POST", path, body)
+	headers.append("Content-Type: application/json")
+	return await _http("https://api.audible.%s%s" % [_api_domain(), path],
+			headers, HTTPClient.METHOD_POST, body)
+
+## Streams a (pre-signed CDN) URL to disk, emitting download_progress.
+func _download_file(url: String, dest_path: String, asin: String) -> bool:
+	var req := HTTPRequest.new()
+	req.use_threads = true
+	req.download_file = dest_path
+	add_child(req)
+	var done := {"v": false, "r": -1, "c": 0}
+	req.request_completed.connect(
+		func(r, c, _h, _b): done.v = true; done.r = r; done.c = c, CONNECT_ONE_SHOT)
+	if req.request(url) != OK:
+		req.queue_free()
+		return false
+	while not done.v:
+		var total := req.get_body_size()
+		if total > 0:
+			download_progress.emit(asin, clampf(float(req.get_downloaded_bytes()) / float(total), 0.0, 1.0))
+		await get_tree().process_frame
+	var success: bool = done.r == HTTPRequest.RESULT_SUCCESS and int(done.c) >= 200 and int(done.c) < 400
+	req.queue_free()
+	return success
 
 # --- Request signing --------------------------------------------------------
 

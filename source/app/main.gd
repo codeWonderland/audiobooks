@@ -7,16 +7,19 @@ extends Control
 @onready var _player: Control = %PlayerScreen
 @onready var _settings: Control = %SettingsScreen
 @onready var _login: Control = %AudibleLogin
+@onready var _audible_library: Control = %AudibleLibrary
 
 func _ready() -> void:
 	_library.play_requested.connect(_on_play_requested)
 	_library.show_player_requested.connect(_show_player)
 	_library.settings_requested.connect(_show_settings)
+	_library.audible_library_requested.connect(_show_audible_library)
 	_player.closed.connect(_show_library)
 	_settings.closed.connect(_hide_settings)
 	_settings.changed.connect(_library.refresh_current)
 	_settings.connect_requested.connect(_show_login)
 	_login.closed.connect(_hide_login)
+	_audible_library.closed.connect(_hide_audible_library)
 	# Activation bytes arriving (login or manual) unlocks books — refresh sidebar.
 	Audible.activation_fetched.connect(func(_ok, _m): _library.refresh_current())
 	_show_library()
@@ -36,6 +39,14 @@ func _show_login() -> void:
 func _hide_login() -> void:
 	_login.visible = false
 	_show_settings()
+
+func _show_audible_library() -> void:
+	_audible_library.visible = true
+	_audible_library.open()
+
+func _hide_audible_library() -> void:
+	_audible_library.visible = false
+	_library.reload()  # pick up any newly downloaded books
 
 func _on_play_requested(book: Book) -> void:
 	Player.open(book, true)
