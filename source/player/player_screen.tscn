@@ -6,10 +6,10 @@
 [ext_resource type="Texture2D" path="res://assets/icons/back.svg" id="4_back"]
 [ext_resource type="Texture2D" path="res://assets/icons/list.svg" id="5_list"]
 [ext_resource type="Texture2D" path="res://assets/icons/play.svg" id="6_play"]
-[ext_resource type="Texture2D" path="res://assets/icons/replay30.svg" id="7_back"]
-[ext_resource type="Texture2D" path="res://assets/icons/forward30.svg" id="8_fwd"]
-[ext_resource type="Texture2D" path="res://assets/icons/prev.svg" id="9_prev"]
-[ext_resource type="Texture2D" path="res://assets/icons/next.svg" id="10_next"]
+[ext_resource type="Texture2D" path="res://assets/icons/back15.svg" id="7_back"]
+[ext_resource type="Texture2D" path="res://assets/icons/forward15.svg" id="8_fwd"]
+[ext_resource type="Texture2D" path="res://assets/icons/skip_prev.svg" id="9_prev"]
+[ext_resource type="Texture2D" path="res://assets/icons/skip_next.svg" id="10_next"]
 [ext_resource type="Texture2D" path="res://assets/icons/car.svg" id="11_car"]
 [ext_resource type="Texture2D" path="res://assets/icons/timer.svg" id="12_timer"]
 [ext_resource type="Texture2D" path="res://assets/icons/clip.svg" id="13_clip"]
@@ -232,7 +232,7 @@ alignment = 1
 icon = ExtResource("9_prev")
 icon_alignment = 1
 
-[node name="Back30Btn" type="Button" parent="Frame/Center/Column/Transport"]
+[node name="Back15Btn" type="Button" parent="Frame/Center/Column/Transport"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
@@ -240,17 +240,6 @@ size_flags_vertical = 4
 alignment = 1
 icon = ExtResource("7_back")
 icon_alignment = 1
-
-[node name="Lbl30" type="Label" parent="Frame/Center/Column/Transport/Back30Btn"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-theme_override_font_sizes/font_size = 11
-text = "30"
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="PlayBtn" type="Button" parent="Frame/Center/Column/Transport"]
 unique_name_in_owner = true
@@ -265,7 +254,7 @@ alignment = 1
 icon = ExtResource("6_play")
 icon_alignment = 1
 
-[node name="Fwd30Btn" type="Button" parent="Frame/Center/Column/Transport"]
+[node name="Fwd15Btn" type="Button" parent="Frame/Center/Column/Transport"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
@@ -273,17 +262,6 @@ size_flags_vertical = 4
 alignment = 1
 icon = ExtResource("8_fwd")
 icon_alignment = 1
-
-[node name="Lbl30" type="Label" parent="Frame/Center/Column/Transport/Fwd30Btn"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-mouse_filter = 2
-theme_override_font_sizes/font_size = 11
-text = "30"
-horizontal_alignment = 1
-vertical_alignment = 1
 
 [node name="NextBtn" type="Button" parent="Frame/Center/Column/Transport"]
 unique_name_in_owner = true

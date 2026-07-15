@@ -25,9 +25,9 @@ const SLEEP_OPTIONS := [0, 5, 15, 30, 45, 60]  # minutes; 0 = off
 @onready var _left: Label = %LeftLabel
 @onready var _remaining: Label = %RemainingLabel
 @onready var _prev_btn: Button = %PrevBtn
-@onready var _back_btn: Button = %Back30Btn
+@onready var _back_btn: Button = %Back15Btn
 @onready var _play_btn: Button = %PlayBtn
-@onready var _fwd_btn: Button = %Fwd30Btn
+@onready var _fwd_btn: Button = %Fwd15Btn
 @onready var _next_btn: Button = %NextBtn
 @onready var _speed_btn: Button = %SpeedBtn
 @onready var _car_btn: Button = %CarBtn
@@ -46,8 +46,8 @@ var _sleep_deadline := 0.0
 func _ready() -> void:
 	_close_btn.pressed.connect(func(): closed.emit())
 	_play_btn.pressed.connect(Player.toggle)
-	_back_btn.pressed.connect(func(): Player.skip(-30.0))
-	_fwd_btn.pressed.connect(func(): Player.skip(30.0))
+	_back_btn.pressed.connect(func(): Player.skip(-15.0))
+	_fwd_btn.pressed.connect(func(): Player.skip(15.0))
 	_prev_btn.pressed.connect(Player.prev_chapter)
 	_next_btn.pressed.connect(Player.next_chapter)
 	_speed_btn.pressed.connect(_cycle_speed)
@@ -220,8 +220,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				Player.toggle()
 				accept_event()
 			KEY_LEFT:
-				Player.skip(-30.0)
+				Player.skip(-15.0)
 				accept_event()
 			KEY_RIGHT:
-				Player.skip(30.0)
+				Player.skip(15.0)
 				accept_event()
