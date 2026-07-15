@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=15 format=3 uid="uid://c3aud1othemeaa"]
+[gd_resource type="Theme" load_steps=17 format=3 uid="uid://c3aud1othemeaa"]
 
 [ext_resource type="Texture2D" uid="uid://dtu622ns8rko7" path="res://assets/icons/grabber.svg" id="1_grab"]
 
@@ -124,6 +124,38 @@ corner_radius_top_right = 3
 corner_radius_bottom_right = 3
 corner_radius_bottom_left = 3
 
+[sub_resource type="StyleBoxFlat" id="le_normal"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.043, 0.078, 0.122, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.161, 0.224, 0.302, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
+[sub_resource type="StyleBoxFlat" id="le_focus"]
+content_margin_left = 12.0
+content_margin_top = 8.0
+content_margin_right = 12.0
+content_margin_bottom = 8.0
+bg_color = Color(0.043, 0.078, 0.122, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.961, 0.651, 0.239, 1)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
 [sub_resource type="StyleBoxFlat" id="progress_bg"]
 bg_color = Color(0.165, 0.227, 0.302, 1)
 corner_radius_top_left = 4
@@ -196,3 +228,11 @@ HSlider/icons/grabber_disabled = ExtResource("1_grab")
 ProgressBar/colors/font_color = Color(0.929, 0.937, 0.949, 1)
 ProgressBar/styles/background = SubResource("progress_bg")
 ProgressBar/styles/fill = SubResource("progress_fill")
+LineEdit/colors/font_color = Color(0.929, 0.937, 0.949, 1)
+LineEdit/colors/font_placeholder_color = Color(0.361, 0.416, 0.478, 1)
+LineEdit/colors/caret_color = Color(0.961, 0.651, 0.239, 1)
+LineEdit/colors/selection_color = Color(0.961, 0.651, 0.239, 0.35)
+LineEdit/font_sizes/font_size = 15
+LineEdit/styles/normal = SubResource("le_normal")
+LineEdit/styles/focus = SubResource("le_focus")
+LineEdit/styles/read_only = SubResource("le_normal")

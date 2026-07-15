@@ -37,6 +37,20 @@ func set_volume_db(v: float) -> void:
 	_cfg.set_value("playback", "volume_db", v)
 	_flush()
 
+# --- Audible / DRM secrets --------------------------------------------------
+
+## Account-wide activation bytes (8 hex chars) used to decrypt legacy .aax
+## files. Populated manually in Settings or by the Audible client (Phase 2).
+func get_activation_bytes() -> String:
+	return _cfg.get_value("audible", "activation_bytes", "")
+
+func set_activation_bytes(hex: String) -> void:
+	_cfg.set_value("audible", "activation_bytes", hex.strip_edges().to_lower())
+	_flush()
+
+func has_activation_bytes() -> bool:
+	return not get_activation_bytes().is_empty()
+
 # --- Per-book resume position ----------------------------------------------
 
 func get_position(book_id: String) -> float:

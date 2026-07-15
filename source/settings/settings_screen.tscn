@@ -1,0 +1,108 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://source/settings/settings_screen.gd" id="1_set"]
+
+[node name="SettingsScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_set")
+
+[node name="Dim" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.043, 0.062, 0.09, 0.7)
+
+[node name="Center" type="CenterContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Panel" type="PanelContainer" parent="Center"]
+custom_minimum_size = Vector2(500, 0)
+layout_mode = 2
+
+[node name="VBox" type="VBoxContainer" parent="Center/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Header" type="HBoxContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+
+[node name="HeaderTitle" type="Label" parent="Center/Panel/VBox/Header"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"Title"
+text = "Settings"
+
+[node name="CloseBtn" type="Button" parent="Center/Panel/VBox/Header"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "✕"
+
+[node name="AccountLabel" type="Label" parent="Center/Panel/VBox"]
+layout_mode = 2
+text = "Audible account"
+
+[node name="AccountStatus" type="Label" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+text = "Not connected"
+
+[node name="ConnectBtn" type="Button" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"Primary"
+text = "Connect Audible account"
+
+[node name="Sep1" type="HSeparator" parent="Center/Panel/VBox"]
+layout_mode = 2
+
+[node name="BytesLabel" type="Label" parent="Center/Panel/VBox"]
+layout_mode = 2
+text = "Activation bytes"
+
+[node name="BytesHelp" type="Label" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+text = "8-character hex code used to decrypt legacy .aax files. The Audible connection can fill this in automatically."
+autowrap_mode = 2
+
+[node name="BytesRow" type="HBoxContainer" parent="Center/Panel/VBox"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="BytesEdit" type="LineEdit" parent="Center/Panel/VBox/BytesRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+placeholder_text = "e.g. 1a2b3c4d"
+max_length = 8
+
+[node name="SaveBytesBtn" type="Button" parent="Center/Panel/VBox/BytesRow"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Pill"
+text = "Save"
+
+[node name="BytesStatus" type="Label" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Faint"
+text = ""
+
+[node name="Sep2" type="HSeparator" parent="Center/Panel/VBox"]
+layout_mode = 2
+
+[node name="DoneBtn" type="Button" parent="Center/Panel/VBox"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_horizontal = 3
+theme_type_variation = &"Primary"
+text = "Done"

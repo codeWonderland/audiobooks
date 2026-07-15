@@ -16,7 +16,7 @@ signal book_found(book: Book)
 signal scan_progress(done: int, total: int)
 signal scan_finished(books: Array)
 
-const AUDIO_EXTS := ["mp3", "m4b"]
+const AUDIO_EXTS := ["mp3", "m4b", "m4a", "aax", "aaxc"]
 
 var books: Array[Book] = []
 var _thread: Thread = null
@@ -146,6 +146,13 @@ func _book_from_data(path: String, size: int, id: String, data: Dictionary) -> B
 	book.file_size = size
 	book.id = id
 	book.format = path.get_extension().to_lower()
+	if book.format == "m4a":
+		book.format = "m4b"  # same aac container, treat identically
+	book.encrypted = book.format in ["aax", "aaxc"]
+	if book.format == "aaxc":
+		var voucher := _load_voucher(path)
+		book.voucher_key = voucher.get("key", "")
+		book.voucher_iv = voucher.get("iv", "")
 
 	var fmt: Dictionary = data.get("format", {})
 	book.duration = float(fmt.get("duration", "0"))
@@ -174,6 +181,25 @@ func _lower_keys(d: Dictionary) -> Dictionary:
 	for k in d.keys():
 		out[str(k).to_lower()] = d[k]
 	return out
+
+## Reads the AES key/iv for an .aaxc file from a companion "<name>.voucher" JSON.
+## Accepts our simple {"key","iv"} shape or an audible-cli decrypted voucher
+## ({"content_license": {"license_response": {"key","iv"}}}).
+func _load_voucher(aaxc_path: String) -> Dictionary:
+	var vp := aaxc_path.get_basename() + ".voucher"
+	if not FileAccess.file_exists(vp):
+		return {}
+	var f := FileAccess.open(vp, FileAccess.READ)
+	if f == null:
+		return {}
+	var data = JSON.parse_string(f.get_as_text())
+	if data is Dictionary:
+		if data.has("key") and data.has("iv"):
+			return {"key": data["key"], "iv": data["iv"]}
+		var lr = data.get("content_license", {}).get("license_response", {})
+		if lr is Dictionary and lr.has("key") and lr.has("iv"):
+			return {"key": lr["key"], "iv": lr["iv"]}
+	return {}
 
 # --- Cover art --------------------------------------------------------------
 

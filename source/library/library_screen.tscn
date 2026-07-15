@@ -3,6 +3,7 @@
 [ext_resource type="Script" path="res://source/library/library_screen.gd" id="1_lib"]
 [ext_resource type="Texture2D" uid="uid://hq2cgxpyhier" path="res://assets/icons/folder.svg" id="2_folder"]
 [ext_resource type="Texture2D" path="res://assets/icons/play.svg" id="3_play"]
+[ext_resource type="Texture2D" path="res://assets/icons/gear.svg" id="4_gear"]
 
 [node name="LibraryScreen" type="Control"]
 layout_mode = 3
@@ -45,6 +46,15 @@ layout_mode = 2
 theme_type_variation = &"Muted"
 text = "No folder selected"
 text_overrun_behavior = 3
+
+[node name="SettingsBtn" type="Button" parent="Margin/Root/Toolbar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+size_flags_vertical = 4
+alignment = 1
+icon = ExtResource("4_gear")
+icon_alignment = 1
 
 [node name="OpenFolderBtn" type="Button" parent="Margin/Root/Toolbar"]
 unique_name_in_owner = true

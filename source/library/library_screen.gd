@@ -6,12 +6,14 @@ extends Control
 
 signal play_requested(book: Book)
 signal show_player_requested   ## open the full player for the already-loaded book
+signal settings_requested      ## open the settings screen
 
 const BookCardScene := preload("res://source/library/book_card.tscn")
 const PLAY_ICON := preload("res://assets/icons/play.svg")
 const PAUSE_ICON := preload("res://assets/icons/pause.svg")
 
 @onready var _open_btn: Button = %OpenFolderBtn
+@onready var _settings_btn: Button = %SettingsBtn
 @onready var _folder_label: Label = %FolderLabel
 @onready var _status: Label = %StatusLabel
 @onready var _scan_bar: ProgressBar = %ScanBar
@@ -46,6 +48,7 @@ var _dialog: FileDialog
 
 func _ready() -> void:
 	_open_btn.pressed.connect(_pick_folder)
+	_settings_btn.pressed.connect(func(): settings_requested.emit())
 	_sb_play.pressed.connect(_on_sidebar_play)
 	Library.scan_started.connect(_on_scan_started)
 	Library.book_found.connect(_add_card)
@@ -177,6 +180,12 @@ func _populate_sidebar(book: Book) -> void:
 func _update_sidebar_play(book: Book) -> void:
 	if book == null:
 		return
+	if book.encrypted and not book.secret_ready():
+		_sb_play.text = "Unlock in Settings"
+		var need := "activation bytes" if book.format == "aax" else "a download voucher"
+		_sb_progress.text = "🔒 DRM-protected %s — needs %s." % [book.format.to_upper(), need]
+		_sb_progress.visible = true
+		return
 	if _is_current(book):
 		_sb_play.text = "Currently playing"
 		var pos := Player.get_position()
@@ -199,10 +208,17 @@ func _is_current(book: Book) -> bool:
 func _on_sidebar_play() -> void:
 	if _selected == null:
 		return
-	if _is_current(_selected):
+	if _selected.encrypted and not _selected.secret_ready():
+		settings_requested.emit()  # let the user add the key
+	elif _is_current(_selected):
 		show_player_requested.emit()  # already loaded — just open the player
 	else:
 		play_requested.emit(_selected)
+
+## Re-evaluate the selected book's sidebar (e.g. after activation bytes change).
+func refresh_current() -> void:
+	if _selected != null:
+		_update_sidebar_play(_selected)
 
 # --- Mini player ------------------------------------------------------------
 

@@ -1,8 +1,9 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://source/app/main.gd" id="1_main"]
 [ext_resource type="PackedScene" path="res://source/library/library_screen.tscn" id="2_lib"]
 [ext_resource type="PackedScene" path="res://source/player/player_screen.tscn" id="3_ply"]
+[ext_resource type="PackedScene" path="res://source/settings/settings_screen.tscn" id="4_set"]
 
 [node name="Main" type="Control"]
 layout_mode = 3
@@ -16,6 +17,11 @@ unique_name_in_owner = true
 layout_mode = 1
 
 [node name="PlayerScreen" parent="." instance=ExtResource("3_ply")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="SettingsScreen" parent="." instance=ExtResource("4_set")]
 unique_name_in_owner = true
 visible = false
 layout_mode = 1

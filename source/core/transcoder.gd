@@ -4,10 +4,12 @@ extends Node
 ##   * mp3  -> played directly (Godot decodes MP3 natively)
 ##   * m4b  -> transcoded once to Ogg Vorbis with ffmpeg and cached under
 ##            user://cache/audio/<id>.ogg, so re-opens are instant.
+##   * aax  -> decrypted with the account activation bytes, then transcoded/cached
+##   * aaxc -> decrypted with the per-file voucher key/iv, then transcoded/cached
 ##
 ## Registered as the "Transcoder" autoload. This is the single choke point for
-## turning a file into a playable stream, so a future AAX-decrypt path (with
-## Audible activation bytes) slots in here without touching library/player code.
+## turning a file into a playable stream; the Audible DRM decrypt happens here in
+## the same ffmpeg pass, so library/player code stays format-agnostic.
 ##
 ## ffmpeg runs as a child process (OS.create_process) so it can be cancelled and
 ## its `-progress` file polled for a real progress bar.
@@ -46,6 +48,11 @@ func request(book: Book) -> void:
 		return
 	if is_busy():
 		return
+	# Decryption needs a secret; a cached ogg (checked above) wouldn't.
+	if book.encrypted and not book.secret_ready():
+		push_warning("Transcoder: %s is encrypted but no key/activation bytes available" % book.format)
+		transcode_finished.emit.call_deferred(book, false, "")
+		return
 	_start(book)
 
 func cancel() -> void:
@@ -63,9 +70,14 @@ func _start(book: Book) -> void:
 	if FileAccess.file_exists(_out_part):
 		DirAccess.remove_absolute(_out_part)
 
-	_pid = OS.create_process("ffmpeg", [
-		"-y", "-loglevel", "error",
-		"-progress", _progress_file,
+	# Decryption options are INPUT options and must precede -i.
+	var args := PackedStringArray(["-y", "-loglevel", "error", "-progress", _progress_file])
+	match book.format:
+		"aax":
+			args.append_array(["-activation_bytes", Settings.get_activation_bytes()])
+		"aaxc":
+			args.append_array(["-audible_key", book.voucher_key, "-audible_iv", book.voucher_iv])
+	args.append_array([
 		"-i", book.file_path,
 		"-vn",
 		"-c:a", "libvorbis",
@@ -73,6 +85,7 @@ func _start(book: Book) -> void:
 		"-f", "ogg",  # explicit: the .part extension hides the real container
 		_out_part,
 	])
+	_pid = OS.create_process("ffmpeg", args)
 	if _pid <= 0:
 		transcode_finished.emit(book, false, "")
 		_reset()

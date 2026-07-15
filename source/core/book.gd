@@ -4,8 +4,13 @@ extends RefCounted
 ## Library. Purely data + light derived helpers; no I/O of its own.
 
 var file_path: String = ""
-var format: String = ""            # "mp3" or "m4b"
+var format: String = ""            # "mp3", "m4b", "aax", or "aaxc"
 var file_size: int = 0
+
+## DRM: aax needs account activation bytes; aaxc needs a per-file key/iv voucher.
+var encrypted: bool = false
+var voucher_key: String = ""       # aaxc only (hex)
+var voucher_iv: String = ""        # aaxc only (hex)
 
 var title: String = ""
 var author: String = ""            # tag: artist
@@ -35,6 +40,16 @@ func chapter_at(t: float) -> int:
 		if t >= chapters[i].start and t < chapters[i].end:
 			return i
 	return maxi(0, chapters.size() - 1) if not chapters.is_empty() else 0
+
+## Whether we have the secret needed to decrypt/play this book.
+func secret_ready() -> bool:
+	match format:
+		"aax":
+			return Settings.has_activation_bytes()
+		"aaxc":
+			return not voucher_key.is_empty() and not voucher_iv.is_empty()
+		_:
+			return true
 
 static func compute_id(path: String, size: int) -> String:
 	return ("%s|%d" % [path, size]).sha1_text().substr(0, 16)
