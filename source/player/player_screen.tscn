@@ -1,0 +1,456 @@
+[gd_scene load_steps=18 format=3]
+
+[ext_resource type="Script" path="res://source/player/player_screen.gd" id="1_ply"]
+[ext_resource type="Shader" path="res://assets/shaders/blur.gdshader" id="2_blur"]
+[ext_resource type="Shader" path="res://assets/shaders/rounded.gdshader" id="3_round"]
+[ext_resource type="Texture2D" path="res://assets/icons/chevron_down.svg" id="4_chev"]
+[ext_resource type="Texture2D" path="res://assets/icons/list.svg" id="5_list"]
+[ext_resource type="Texture2D" path="res://assets/icons/play.svg" id="6_play"]
+[ext_resource type="Texture2D" path="res://assets/icons/replay30.svg" id="7_back"]
+[ext_resource type="Texture2D" path="res://assets/icons/forward30.svg" id="8_fwd"]
+[ext_resource type="Texture2D" path="res://assets/icons/prev.svg" id="9_prev"]
+[ext_resource type="Texture2D" path="res://assets/icons/next.svg" id="10_next"]
+[ext_resource type="Texture2D" path="res://assets/icons/car.svg" id="11_car"]
+[ext_resource type="Texture2D" path="res://assets/icons/timer.svg" id="12_timer"]
+[ext_resource type="Texture2D" path="res://assets/icons/clip.svg" id="13_clip"]
+
+[sub_resource type="ShaderMaterial" id="bg_mat"]
+shader = ExtResource("2_blur")
+shader_parameter/radius = 0.008
+
+[sub_resource type="ShaderMaterial" id="cover_mat"]
+shader = ExtResource("3_round")
+shader_parameter/radius = 0.06
+
+[sub_resource type="StyleBoxFlat" id="play_circle"]
+bg_color = Color(0.949, 0.961, 0.973, 1)
+corner_radius_top_left = 42
+corner_radius_top_right = 42
+corner_radius_bottom_right = 42
+corner_radius_bottom_left = 42
+
+[sub_resource type="StyleBoxFlat" id="toast_bg"]
+content_margin_left = 16.0
+content_margin_top = 9.0
+content_margin_right = 16.0
+content_margin_bottom = 9.0
+bg_color = Color(0.043, 0.078, 0.122, 0.92)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.28, 0.36, 0.46, 1)
+corner_radius_top_left = 18
+corner_radius_top_right = 18
+corner_radius_bottom_right = 18
+corner_radius_bottom_left = 18
+
+[node name="PlayerScreen" type="Control"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+script = ExtResource("1_ply")
+
+[node name="BgBase" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.043, 0.078, 0.122, 1)
+
+[node name="BgCover" type="TextureRect" parent="."]
+unique_name_in_owner = true
+material = SubResource("bg_mat")
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+modulate = Color(0.68, 0.68, 0.68, 1)
+expand_mode = 1
+stretch_mode = 6
+
+[node name="BgTint" type="ColorRect" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+color = Color(0.043, 0.078, 0.122, 0.62)
+
+[node name="Frame" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 22
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 22
+theme_override_constants/margin_bottom = 20
+
+[node name="Center" type="HBoxContainer" parent="Frame"]
+layout_mode = 2
+
+[node name="SpacerL" type="Control" parent="Frame/Center"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Column" type="VBoxContainer" parent="Frame/Center"]
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="TopBar" type="HBoxContainer" parent="Frame/Center/Column"]
+layout_mode = 2
+
+[node name="CloseBtn" type="Button" parent="Frame/Center/Column/TopBar"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+alignment = 1
+icon = ExtResource("4_chev")
+icon_alignment = 1
+
+[node name="TopSpacer" type="Control" parent="Frame/Center/Column/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="GapTop" type="Control" parent="Frame/Center/Column"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="CoverWrap" type="CenterContainer" parent="Frame/Center/Column"]
+layout_mode = 2
+
+[node name="Cover" type="TextureRect" parent="Frame/Center/Column/CoverWrap"]
+unique_name_in_owner = true
+material = SubResource("cover_mat")
+custom_minimum_size = Vector2(340, 340)
+layout_mode = 2
+expand_mode = 1
+stretch_mode = 6
+
+[node name="GapMid" type="Control" parent="Frame/Center/Column"]
+custom_minimum_size = Vector2(0, 10)
+layout_mode = 2
+
+[node name="ChapterWrap" type="CenterContainer" parent="Frame/Center/Column"]
+layout_mode = 2
+
+[node name="ChapterBtn" type="Button" parent="Frame/Center/Column/ChapterWrap"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Chapter"
+icon = ExtResource("5_list")
+
+[node name="Pills" type="HBoxContainer" parent="Frame/Center/Column"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 10
+
+[node name="ClipsBtn" type="Button" parent="Frame/Center/Column/Pills"]
+layout_mode = 2
+theme_type_variation = &"Pill"
+text = "Clips & notes"
+
+[node name="DetailsBtn" type="Button" parent="Frame/Center/Column/Pills"]
+layout_mode = 2
+theme_type_variation = &"Pill"
+text = "Title details"
+
+[node name="LogBtn" type="Button" parent="Frame/Center/Column/Pills"]
+layout_mode = 2
+theme_type_variation = &"Pill"
+text = "Listen log"
+
+[node name="GapPills" type="Control" parent="Frame/Center/Column"]
+custom_minimum_size = Vector2(0, 6)
+layout_mode = 2
+
+[node name="ScrubBlock" type="VBoxContainer" parent="Frame/Center/Column"]
+layout_mode = 2
+theme_override_constants/separation = 4
+
+[node name="Scrubber" type="HSlider" parent="Frame/Center/Column/ScrubBlock"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 22)
+layout_mode = 2
+size_flags_vertical = 4
+max_value = 100.0
+step = 0.1
+
+[node name="Times" type="HBoxContainer" parent="Frame/Center/Column/ScrubBlock"]
+layout_mode = 2
+
+[node name="ElapsedLabel" type="Label" parent="Frame/Center/Column/ScrubBlock/Times"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+text = "0:00"
+
+[node name="Sp1" type="Control" parent="Frame/Center/Column/ScrubBlock/Times"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="LeftLabel" type="Label" parent="Frame/Center/Column/ScrubBlock/Times"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+text = "0m left"
+
+[node name="Sp2" type="Control" parent="Frame/Center/Column/ScrubBlock/Times"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="RemainingLabel" type="Label" parent="Frame/Center/Column/ScrubBlock/Times"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+text = "-0:00"
+
+[node name="GapScrub" type="Control" parent="Frame/Center/Column"]
+custom_minimum_size = Vector2(0, 4)
+layout_mode = 2
+
+[node name="Transport" type="HBoxContainer" parent="Frame/Center/Column"]
+custom_minimum_size = Vector2(0, 92)
+layout_mode = 2
+alignment = 1
+theme_override_constants/separation = 14
+
+[node name="PrevBtn" type="Button" parent="Frame/Center/Column/Transport"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+size_flags_vertical = 4
+alignment = 1
+icon = ExtResource("9_prev")
+icon_alignment = 1
+
+[node name="Back30Btn" type="Button" parent="Frame/Center/Column/Transport"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+size_flags_vertical = 4
+alignment = 1
+icon = ExtResource("7_back")
+icon_alignment = 1
+
+[node name="Lbl30" type="Label" parent="Frame/Center/Column/Transport/Back30Btn"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 11
+text = "30"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="PlayBtn" type="Button" parent="Frame/Center/Column/Transport"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(84, 84)
+layout_mode = 2
+size_flags_vertical = 4
+theme_override_styles/normal = SubResource("play_circle")
+theme_override_styles/hover = SubResource("play_circle")
+theme_override_styles/pressed = SubResource("play_circle")
+theme_override_styles/focus = SubResource("play_circle")
+alignment = 1
+icon = ExtResource("6_play")
+icon_alignment = 1
+
+[node name="Fwd30Btn" type="Button" parent="Frame/Center/Column/Transport"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 2
+size_flags_vertical = 4
+alignment = 1
+icon = ExtResource("8_fwd")
+icon_alignment = 1
+
+[node name="Lbl30" type="Label" parent="Frame/Center/Column/Transport/Fwd30Btn"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+mouse_filter = 2
+theme_override_font_sizes/font_size = 11
+text = "30"
+horizontal_alignment = 1
+vertical_alignment = 1
+
+[node name="NextBtn" type="Button" parent="Frame/Center/Column/Transport"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(48, 48)
+layout_mode = 2
+size_flags_vertical = 4
+alignment = 1
+icon = ExtResource("10_next")
+icon_alignment = 1
+
+[node name="GapBottom" type="Control" parent="Frame/Center/Column"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="BottomActions" type="HBoxContainer" parent="Frame/Center/Column"]
+custom_minimum_size = Vector2(0, 62)
+layout_mode = 2
+
+[node name="SpeedCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="SpeedWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/SpeedCol"]
+layout_mode = 2
+
+[node name="SpeedBtn" type="Button" parent="Frame/Center/Column/BottomActions/SpeedCol/SpeedWrap"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 34)
+layout_mode = 2
+text = "1.00x"
+
+[node name="SpeedLbl" type="Label" parent="Frame/Center/Column/BottomActions/SpeedCol"]
+layout_mode = 2
+theme_type_variation = &"Faint"
+text = "Speed"
+horizontal_alignment = 1
+
+[node name="CarCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="CarWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/CarCol"]
+layout_mode = 2
+
+[node name="CarBtn" type="Button" parent="Frame/Center/Column/BottomActions/CarCol/CarWrap"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(38, 34)
+layout_mode = 2
+alignment = 1
+icon = ExtResource("11_car")
+icon_alignment = 1
+
+[node name="CarLbl" type="Label" parent="Frame/Center/Column/BottomActions/CarCol"]
+layout_mode = 2
+theme_type_variation = &"Faint"
+text = "Car Mode"
+horizontal_alignment = 1
+
+[node name="TimerCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="TimerWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/TimerCol"]
+layout_mode = 2
+
+[node name="TimerBtn" type="Button" parent="Frame/Center/Column/BottomActions/TimerCol/TimerWrap"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(38, 34)
+layout_mode = 2
+alignment = 1
+icon = ExtResource("12_timer")
+icon_alignment = 1
+
+[node name="TimerLbl" type="Label" parent="Frame/Center/Column/BottomActions/TimerCol"]
+layout_mode = 2
+theme_type_variation = &"Faint"
+text = "Timer"
+horizontal_alignment = 1
+
+[node name="ClipCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_constants/separation = 2
+
+[node name="ClipWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/ClipCol"]
+layout_mode = 2
+
+[node name="ClipBtn" type="Button" parent="Frame/Center/Column/BottomActions/ClipCol/ClipWrap"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(38, 34)
+layout_mode = 2
+alignment = 1
+icon = ExtResource("13_clip")
+icon_alignment = 1
+
+[node name="ClipLbl" type="Label" parent="Frame/Center/Column/BottomActions/ClipCol"]
+layout_mode = 2
+theme_type_variation = &"Faint"
+text = "+ Clip"
+horizontal_alignment = 1
+
+[node name="SpacerR" type="Control" parent="Frame/Center"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="ToastWrap" type="MarginContainer" parent="."]
+layout_mode = 1
+anchors_preset = 12
+anchor_top = 1.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_top = -152.0
+offset_bottom = -36.0
+grow_horizontal = 2
+grow_vertical = 0
+mouse_filter = 2
+
+[node name="ToastCenter" type="CenterContainer" parent="ToastWrap"]
+layout_mode = 2
+mouse_filter = 2
+
+[node name="Toast" type="Label" parent="ToastWrap/ToastCenter"]
+unique_name_in_owner = true
+layout_mode = 2
+mouse_filter = 2
+theme_override_styles/normal = SubResource("toast_bg")
+text = ""
+
+[node name="LoadingOverlay" type="Control" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="Dim" type="ColorRect" parent="LoadingOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.043, 0.062, 0.09, 0.62)
+
+[node name="LoadCenter" type="CenterContainer" parent="LoadingOverlay"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+
+[node name="LoadPanel" type="PanelContainer" parent="LoadingOverlay/LoadCenter"]
+layout_mode = 2
+
+[node name="LoadVBox" type="VBoxContainer" parent="LoadingOverlay/LoadCenter/LoadPanel"]
+custom_minimum_size = Vector2(300, 0)
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="LoadingLabel" type="Label" parent="LoadingOverlay/LoadCenter/LoadPanel/LoadVBox"]
+unique_name_in_owner = true
+layout_mode = 2
+text = "Preparing audio…"
+horizontal_alignment = 1
+
+[node name="LoadingBar" type="ProgressBar" parent="LoadingOverlay/LoadCenter/LoadPanel/LoadVBox"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 8)
+layout_mode = 2
+show_percentage = false

@@ -1,0 +1,168 @@
+extends Control
+## Library browser: pick a folder, scan it for audiobooks, show them as a grid
+## of covers, and reveal a metadata sidebar for the selected book. Emits
+## play_requested when the user chooses to listen (sidebar Play or a card
+## double-click); Main handles the switch to the player screen.
+
+signal play_requested(book: Book)
+
+const BookCardScene := preload("res://source/library/book_card.tscn")
+
+@onready var _open_btn: Button = %OpenFolderBtn
+@onready var _folder_label: Label = %FolderLabel
+@onready var _status: Label = %StatusLabel
+@onready var _scan_bar: ProgressBar = %ScanBar
+@onready var _grid: HFlowContainer = %Grid
+@onready var _empty_state: Label = %EmptyState
+
+@onready var _sb_empty: Label = %SidebarEmpty
+@onready var _sb_content: Control = %SidebarContent
+@onready var _sb_cover: TextureRect = %SbCover
+@onready var _sb_title: Label = %SbTitle
+@onready var _sb_author: Label = %SbAuthor
+@onready var _sb_narrator: Label = %SbNarrator
+@onready var _sb_series: Label = %SbSeries
+@onready var _sb_stats: Label = %SbStats
+@onready var _sb_description: Label = %SbDescription
+@onready var _sb_progress: Label = %SbProgress
+@onready var _sb_play: Button = %SbPlayBtn
+
+const PLACEHOLDER := preload("res://assets/icons/book_placeholder.svg")
+
+var _cards: Array[Node] = []
+var _selected: Book = null
+var _selected_card: Node = null
+var _dialog: FileDialog
+
+func _ready() -> void:
+	_open_btn.pressed.connect(_pick_folder)
+	_sb_play.pressed.connect(_on_sidebar_play)
+	Library.scan_started.connect(_on_scan_started)
+	Library.book_found.connect(_add_card)
+	Library.scan_progress.connect(_on_scan_progress)
+	Library.scan_finished.connect(_on_scan_finished)
+
+	_scan_bar.visible = false
+	_show_sidebar_empty()
+
+	var folder := Settings.get_library_folder()
+	if not folder.is_empty() and DirAccess.dir_exists_absolute(folder):
+		_start_scan(folder)
+	else:
+		_folder_label.text = "No folder selected"
+		_empty_state.visible = true
+
+# --- Folder picking / scanning ---------------------------------------------
+
+func _pick_folder() -> void:
+	if _dialog == null:
+		_dialog = FileDialog.new()
+		_dialog.file_mode = FileDialog.FILE_MODE_OPEN_DIR
+		_dialog.access = FileDialog.ACCESS_FILESYSTEM
+		_dialog.use_native_dialog = true
+		_dialog.title = "Select your audiobook folder"
+		_dialog.dir_selected.connect(_on_dir_selected)
+		add_child(_dialog)
+	var current := Settings.get_library_folder()
+	_dialog.current_dir = current if not current.is_empty() else OS.get_environment("HOME")
+	_dialog.popup_centered(Vector2i(960, 620))
+
+func _on_dir_selected(dir: String) -> void:
+	Settings.set_library_folder(dir)
+	_start_scan(dir)
+
+func _start_scan(folder: String) -> void:
+	_folder_label.text = folder
+	_empty_state.visible = false
+	for c in _cards:
+		c.queue_free()
+	_cards.clear()
+	_selected = null
+	_selected_card = null
+	_show_sidebar_empty()
+	Library.scan(folder)
+
+func _on_scan_started(total: int) -> void:
+	_empty_state.visible = false
+	_scan_bar.visible = total > 0
+	_scan_bar.max_value = maxi(1, total)
+	_scan_bar.value = 0
+	_status.text = "Scanning… (0/%d)" % total
+
+func _on_scan_progress(done: int, total: int) -> void:
+	_scan_bar.value = done
+	_status.text = "Scanning… (%d/%d)" % [done, total]
+
+func _on_scan_finished(books: Array) -> void:
+	_scan_bar.visible = false
+	if books.is_empty():
+		_status.text = ""
+		_empty_state.text = "No mp3 or m4b audiobooks found in this folder."
+		_empty_state.visible = true
+	else:
+		_status.text = "%d book%s" % [books.size(), "" if books.size() == 1 else "s"]
+
+# --- Cards ------------------------------------------------------------------
+
+func _add_card(book: Book) -> void:
+	var card := BookCardScene.instantiate()
+	_grid.add_child(card)
+	card.setup(book)
+	card.selected.connect(func(b): _select(b, card))
+	card.activated.connect(func(b): _select(b, card); play_requested.emit(b))
+	_cards.append(card)
+
+func _select(book: Book, card: Node) -> void:
+	if _selected_card != null and is_instance_valid(_selected_card):
+		_selected_card.set_selected(false)
+	_selected_card = card
+	_selected = book
+	if card != null:
+		card.set_selected(true)
+	_populate_sidebar(book)
+
+# --- Sidebar ----------------------------------------------------------------
+
+func _show_sidebar_empty() -> void:
+	_sb_empty.visible = true
+	_sb_content.visible = false
+
+func _populate_sidebar(book: Book) -> void:
+	_sb_empty.visible = false
+	_sb_content.visible = true
+
+	var tex := Library.cover_texture(book)
+	_sb_cover.texture = tex if tex != null else PLACEHOLDER
+	_sb_title.text = book._display_title()
+	_sb_author.text = "by %s" % (book.author if not book.author.is_empty() else "Unknown author")
+
+	_sb_narrator.text = "Narrated by %s" % book.narrator
+	_sb_narrator.visible = not book.narrator.is_empty()
+
+	_sb_series.text = book.series
+	_sb_series.visible = not book.series.is_empty() and book.series != book.title
+
+	var stats := "%s · %d chapter%s · %s · %s" % [
+		Fmt.duration(book.duration),
+		book.chapters.size(), "" if book.chapters.size() == 1 else "s",
+		book.format.to_upper(),
+		Fmt.file_size(book.file_size),
+	]
+	_sb_stats.text = stats
+
+	_sb_description.text = book.description
+	_sb_description.visible = not book.description.is_empty()
+
+	if Settings.has_progress(book.id):
+		var pos := Settings.get_position(book.id)
+		var left := maxf(0.0, book.duration - pos)
+		_sb_progress.text = "Resume · %s (%s left)" % [Fmt.clock(pos), Fmt.duration(left)]
+		_sb_progress.visible = true
+		_sb_play.text = "Resume"
+	else:
+		_sb_progress.visible = false
+		_sb_play.text = "Play"
+
+func _on_sidebar_play() -> void:
+	if _selected != null:
+		play_requested.emit(_selected)
