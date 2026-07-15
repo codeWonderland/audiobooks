@@ -110,9 +110,10 @@ text = "Choose a folder that contains your mp3 or m4b audiobooks to get started.
 autowrap_mode = 2
 
 [node name="Sidebar" type="PanelContainer" parent="Margin/Root/Body"]
-custom_minimum_size = Vector2(340, 0)
+custom_minimum_size = Vector2(360, 0)
 layout_mode = 2
 size_flags_vertical = 3
+theme_type_variation = &"Dialog"
 
 [node name="Inner" type="VBoxContainer" parent="Margin/Root/Body/Sidebar"]
 layout_mode = 2

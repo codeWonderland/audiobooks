@@ -15,6 +15,7 @@ signal activation_fetched(success: bool, message: String)
 signal state_changed
 signal library_synced(items: Array, message: String)
 signal download_progress(asin: String, ratio: float)
+signal download_converting(asin: String)
 signal download_finished(asin: String, success: bool, message: String)
 
 const DEVICE_TYPE := "A2CZJZGLK2JJVM"
@@ -262,41 +263,81 @@ func _map_item(it: Dictionary) -> Dictionary:
 		"runtime_min": int(it.get("runtime_length_min", 0)),
 		"cover_url": cover,
 		"series": series,
-		"downloaded": FileAccess.file_exists(book_path(asin)),
+		"downloaded": is_downloaded(asin),
 	}
 
-## Path where a downloaded book for `asin` lives (named by asin for dedup).
-func book_path(asin: String) -> String:
+## Files for a downloaded book (named by asin for dedup). The optimal form is
+## a DRM-free .m4b; a raw .aaxc + .voucher is kept only if conversion failed.
+func _m4b_path(asin: String) -> String:
+	return Library.download_dir().path_join(asin + ".m4b")
+
+func _aaxc_path(asin: String) -> String:
 	return Library.download_dir().path_join(asin + ".aaxc")
+
+func is_downloaded(asin: String) -> bool:
+	return FileAccess.file_exists(_m4b_path(asin)) or FileAccess.file_exists(_aaxc_path(asin))
 
 # --- Download + license + voucher -------------------------------------------
 
-## Download a library item into the app books folder and write its voucher.
+## Download a library item, then losslessly decrypt/remux it to a DRM-free .m4b
+## (keeping chapters + cover). Falls back to keeping the .aaxc + voucher if the
+## conversion fails, so the book is still playable either way.
 func download_book(item: Dictionary) -> void:
 	var asin := str(item.get("asin", ""))
 	if asin.is_empty():
 		download_finished.emit(asin, false, "Missing asin.")
 		return
-	if FileAccess.file_exists(book_path(asin)):
+	if is_downloaded(asin):
 		download_finished.emit(asin, true, "Already downloaded.")
 		return
 	var lic := await _get_license(asin)
 	if not lic.get("ok", false):
 		download_finished.emit(asin, false, lic.get("error", "License request failed."))
 		return
-	var dest := book_path(asin)
-	var part := dest + ".part"
-	var ok := await _download_file(lic.url, part, asin)
+	# Download to a temp name the scanner ignores (not an audio extension).
+	var tmp := Library.download_dir().path_join(asin + ".aaxc.dl")
+	var ok := await _download_file(lic.url, tmp, asin)
 	if not ok:
-		if FileAccess.file_exists(part):
-			DirAccess.remove_absolute(part)
+		if FileAccess.file_exists(tmp):
+			DirAccess.remove_absolute(tmp)
 		download_finished.emit(asin, false, "Download failed.")
 		return
-	DirAccess.rename_absolute(part, dest)
-	var vf := FileAccess.open(dest.get_basename() + ".voucher", FileAccess.WRITE)
+
+	download_converting.emit(asin)
+	var m4b := _m4b_path(asin)
+	var converted := await _convert_aaxc_to_m4b(tmp, lic.key, lic.iv, m4b)
+	if converted:
+		DirAccess.remove_absolute(tmp)
+		download_finished.emit(asin, true, "Downloaded & converted.")
+		return
+	# Fallback: keep the encrypted file + voucher; still plays via the aaxc path.
+	if FileAccess.file_exists(m4b):
+		DirAccess.remove_absolute(m4b)
+	DirAccess.rename_absolute(tmp, _aaxc_path(asin))
+	var vf := FileAccess.open(_aaxc_path(asin).get_basename() + ".voucher", FileAccess.WRITE)
 	if vf:
 		vf.store_string(JSON.stringify({"key": lic.key, "iv": lic.iv}))
-	download_finished.emit(asin, true, "Downloaded.")
+	download_finished.emit(asin, true, "Downloaded (kept encrypted file; conversion failed).")
+
+## Lossless decrypt+remux AAXC -> m4b, preserving audio, chapters and cover.
+func _convert_aaxc_to_m4b(aaxc: String, key: String, iv: String, dest: String) -> bool:
+	var pid := OS.create_process("ffmpeg", [
+		"-y", "-loglevel", "error",
+		"-audible_key", key, "-audible_iv", iv,
+		"-i", aaxc,
+		"-map", "0:a", "-map", "0:v?",  # audio + cover (skip data streams)
+		"-c", "copy",
+		"-disposition:v:0", "attached_pic",
+		"-map_chapters", "0",
+		"-f", "mp4",
+		dest,
+	])
+	if pid <= 0:
+		return false
+	while OS.is_process_running(pid):
+		await get_tree().create_timer(0.2).timeout
+	return OS.get_process_exit_code(pid) == 0 and FileAccess.file_exists(dest) \
+			and FileAccess.open(dest, FileAccess.READ).get_length() > 0
 
 func _get_license(asin: String) -> Dictionary:
 	var body := JSON.stringify({

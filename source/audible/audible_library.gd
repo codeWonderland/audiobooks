@@ -18,6 +18,7 @@ func _ready() -> void:
 	_close_btn.pressed.connect(func(): closed.emit())
 	Audible.library_synced.connect(_on_synced)
 	Audible.download_progress.connect(_on_progress)
+	Audible.download_converting.connect(_on_converting)
 	Audible.download_finished.connect(_on_finished)
 
 func open() -> void:
@@ -87,6 +88,10 @@ func _download(item: Dictionary, btn: Button) -> void:
 func _on_progress(asin: String, ratio: float) -> void:
 	if _rows.has(asin):
 		_rows[asin].text = "%d%%" % int(ratio * 100.0)
+
+func _on_converting(asin: String) -> void:
+	if _rows.has(asin):
+		_rows[asin].text = "Converting…"
 
 func _on_finished(asin: String, success: bool, message: String) -> void:
 	if _rows.has(asin):
