@@ -7,17 +7,19 @@
   </defs>
   <rect x="0" y="0" width="128" height="128" rx="28" fill="url(#bg)"/>
 
-  <!-- book (large, pressing against the ear cups) -->
-  <rect x="37" y="40" width="54" height="72" rx="7" fill="#eef1f4"/>
-  <rect x="37" y="40" width="10" height="72" rx="5" fill="#d6dde6"/>
-  <line x1="56" y1="66" x2="82" y2="66" stroke="#f5a63d" stroke-width="4" stroke-linecap="round"/>
-  <line x1="56" y1="78" x2="82" y2="78" stroke="#c9832f" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
-  <line x1="56" y1="90" x2="74" y2="90" stroke="#c9832f" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <!-- headphone band, floating behind the book -->
+  <path d="M29 46 A40 40 0 0 1 99 46" fill="none" stroke="#f5a63d" stroke-width="8" stroke-linecap="round"/>
 
-  <!-- headphones on top, band resting over the book -->
-  <path d="M29 54 A40 40 0 0 1 99 54" fill="none" stroke="#f5a63d" stroke-width="8" stroke-linecap="round"/>
-  <rect x="21" y="50" width="16" height="38" rx="8" fill="#f5a63d"/>
-  <rect x="91" y="50" width="16" height="38" rx="8" fill="#f5a63d"/>
-  <rect x="25" y="56" width="8" height="26" rx="4" fill="#0b131f" opacity="0.35"/>
-  <rect x="95" y="56" width="8" height="26" rx="4" fill="#0b131f" opacity="0.35"/>
+  <!-- book (large, pressing against the ear cups) -->
+  <rect x="37" y="32" width="54" height="72" rx="7" fill="#eef1f4"/>
+  <rect x="37" y="32" width="10" height="72" rx="5" fill="#d6dde6"/>
+  <line x1="56" y1="58" x2="82" y2="58" stroke="#f5a63d" stroke-width="4" stroke-linecap="round"/>
+  <line x1="56" y1="70" x2="82" y2="70" stroke="#c9832f" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+  <line x1="56" y1="82" x2="74" y2="82" stroke="#c9832f" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+
+  <!-- ear cups, in front -->
+  <rect x="21" y="42" width="16" height="38" rx="8" fill="#f5a63d"/>
+  <rect x="91" y="42" width="16" height="38" rx="8" fill="#f5a63d"/>
+  <rect x="25" y="48" width="8" height="26" rx="4" fill="#0b131f" opacity="0.35"/>
+  <rect x="95" y="48" width="8" height="26" rx="4" fill="#0b131f" opacity="0.35"/>
 </svg>

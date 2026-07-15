@@ -52,20 +52,20 @@ it shells out to is `ffmpeg`.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/screenshots/library.png" alt="Library grid with cover art, All/Downloaded tabs, and a metadata sidebar"></td>
-    <td width="50%"><img src="docs/screenshots/download.png" alt="A cloud-only title selected, showing a Download action in the sidebar"></td>
+	<td width="50%"><img src="docs/screenshots/library.png" alt="Library grid with cover art, All/Downloaded tabs, and a metadata sidebar"></td>
+	<td width="50%"><img src="docs/screenshots/download.png" alt="A cloud-only title selected, showing a Download action in the sidebar"></td>
   </tr>
   <tr>
-    <td align="center"><em>Your library — local files and your Audible cloud library in one grid</em></td>
-    <td align="center"><em>Cloud titles show full details and a one‑click Download</em></td>
+	<td align="center"><em>Your library — local files and your Audible cloud library in one grid</em></td>
+	<td align="center"><em>Cloud titles show full details and a one‑click Download</em></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/screenshots/chapters.png" alt="The chapters side panel listing every chapter with timestamps"></td>
-    <td width="50%"><img src="docs/screenshots/player.png" alt="The now-playing player screen"></td>
+	<td width="50%"><img src="docs/screenshots/chapters.png" alt="The chapters side panel listing every chapter with timestamps"></td>
+	<td width="50%"><img src="docs/screenshots/player.png" alt="The now-playing player screen"></td>
   </tr>
   <tr>
-    <td align="center"><em>Jump around with the chapters panel</em></td>
-    <td align="center"><em>A calm, focused now‑playing screen</em></td>
+	<td align="center"><em>Jump around with the chapters panel</em></td>
+	<td align="center"><em>A calm, focused now‑playing screen</em></td>
   </tr>
 </table>
 
@@ -89,7 +89,7 @@ it shells out to is `ffmpeg`.
    - **Linux** — `chmod +x Audiobooks.x86_64 && ./Audiobooks.x86_64`
    - **Windows** — run `Audiobooks.exe`
    - **macOS** — open `Audiobooks.app` (you may need to allow it in
-     *System Settings → Privacy & Security* the first time)
+	 *System Settings → Privacy & Security* the first time)
 
 ## Getting started
 
