@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3]
+[gd_scene load_steps=17 format=3]
 
 [ext_resource type="Script" path="res://source/player/player_screen.gd" id="1_ply"]
 [ext_resource type="Shader" path="res://assets/shaders/blur.gdshader" id="2_blur"]
@@ -11,6 +11,7 @@
 [ext_resource type="Texture2D" path="res://assets/icons/skip_prev.svg" id="9_prev"]
 [ext_resource type="Texture2D" path="res://assets/icons/skip_next.svg" id="10_next"]
 [ext_resource type="Texture2D" path="res://assets/icons/timer.svg" id="12_timer"]
+[ext_resource type="Texture2D" path="res://assets/icons/volume.svg" id="13_vol"]
 
 [sub_resource type="ShaderMaterial" id="bg_mat"]
 shader = ExtResource("2_blur")
@@ -83,49 +84,26 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-theme_override_constants/margin_left = 22
-theme_override_constants/margin_top = 16
-theme_override_constants/margin_right = 22
-theme_override_constants/margin_bottom = 20
+theme_override_constants/margin_left = 28
+theme_override_constants/margin_top = 72
+theme_override_constants/margin_right = 28
+theme_override_constants/margin_bottom = 28
 
-[node name="Center" type="HBoxContainer" parent="Frame"]
+[node name="Center" type="CenterContainer" parent="Frame"]
 layout_mode = 2
 
-[node name="SpacerL" type="Control" parent="Frame/Center"]
+[node name="MainBox" type="BoxContainer" parent="Frame/Center"]
+unique_name_in_owner = true
 layout_mode = 2
-size_flags_horizontal = 3
+theme_override_constants/separation = 36
+alignment = 1
 
-[node name="Column" type="VBoxContainer" parent="Frame/Center"]
-custom_minimum_size = Vector2(440, 0)
+[node name="CoverWrap" type="CenterContainer" parent="Frame/Center/MainBox"]
 layout_mode = 2
 size_flags_horizontal = 4
-size_flags_vertical = 3
-theme_override_constants/separation = 12
+size_flags_vertical = 4
 
-[node name="TopBar" type="HBoxContainer" parent="Frame/Center/Column"]
-layout_mode = 2
-
-[node name="CloseBtn" type="Button" parent="Frame/Center/Column/TopBar"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 44)
-layout_mode = 2
-text = "Back"
-icon = ExtResource("4_back")
-alignment = 0
-icon_alignment = 0
-
-[node name="TopSpacer" type="Control" parent="Frame/Center/Column/TopBar"]
-layout_mode = 2
-size_flags_horizontal = 3
-
-[node name="GapTop" type="Control" parent="Frame/Center/Column"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="CoverWrap" type="CenterContainer" parent="Frame/Center/Column"]
-layout_mode = 2
-
-[node name="Cover" type="TextureRect" parent="Frame/Center/Column/CoverWrap"]
+[node name="Cover" type="TextureRect" parent="Frame/Center/MainBox/CoverWrap"]
 unique_name_in_owner = true
 material = SubResource("cover_mat")
 custom_minimum_size = Vector2(340, 340)
@@ -133,39 +111,42 @@ layout_mode = 2
 expand_mode = 1
 stretch_mode = 6
 
-[node name="GapMid" type="Control" parent="Frame/Center/Column"]
-custom_minimum_size = Vector2(0, 10)
+[node name="Controls" type="VBoxContainer" parent="Frame/Center/MainBox"]
+custom_minimum_size = Vector2(440, 0)
+layout_mode = 2
+size_flags_horizontal = 4
+size_flags_vertical = 4
+theme_override_constants/separation = 12
+
+[node name="ChapterWrap" type="CenterContainer" parent="Frame/Center/MainBox/Controls"]
 layout_mode = 2
 
-[node name="ChapterWrap" type="CenterContainer" parent="Frame/Center/Column"]
-layout_mode = 2
-
-[node name="ChapterBtn" type="Button" parent="Frame/Center/Column/ChapterWrap"]
+[node name="ChapterBtn" type="Button" parent="Frame/Center/MainBox/Controls/ChapterWrap"]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Chapter"
 icon = ExtResource("5_list")
 
-[node name="Pills" type="HBoxContainer" parent="Frame/Center/Column"]
+[node name="Pills" type="HBoxContainer" parent="Frame/Center/MainBox/Controls"]
 layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 10
 
-[node name="DetailsBtn" type="Button" parent="Frame/Center/Column/Pills"]
+[node name="DetailsBtn" type="Button" parent="Frame/Center/MainBox/Controls/Pills"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Pill"
 text = "Title details"
 
-[node name="GapPills" type="Control" parent="Frame/Center/Column"]
+[node name="GapPills" type="Control" parent="Frame/Center/MainBox/Controls"]
 custom_minimum_size = Vector2(0, 6)
 layout_mode = 2
 
-[node name="ScrubBlock" type="VBoxContainer" parent="Frame/Center/Column"]
+[node name="ScrubBlock" type="VBoxContainer" parent="Frame/Center/MainBox/Controls"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="Scrubber" type="HSlider" parent="Frame/Center/Column/ScrubBlock"]
+[node name="Scrubber" type="HSlider" parent="Frame/Center/MainBox/Controls/ScrubBlock"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 22)
 layout_mode = 2
@@ -173,46 +154,68 @@ size_flags_vertical = 4
 max_value = 100.0
 step = 0.1
 
-[node name="Times" type="HBoxContainer" parent="Frame/Center/Column/ScrubBlock"]
+[node name="Times" type="HBoxContainer" parent="Frame/Center/MainBox/Controls/ScrubBlock"]
 layout_mode = 2
 
-[node name="ElapsedLabel" type="Label" parent="Frame/Center/Column/ScrubBlock/Times"]
+[node name="ElapsedLabel" type="Label" parent="Frame/Center/MainBox/Controls/ScrubBlock/Times"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Muted"
 text = "0:00"
 
-[node name="Sp1" type="Control" parent="Frame/Center/Column/ScrubBlock/Times"]
+[node name="Sp1" type="Control" parent="Frame/Center/MainBox/Controls/ScrubBlock/Times"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="LeftLabel" type="Label" parent="Frame/Center/Column/ScrubBlock/Times"]
+[node name="LeftLabel" type="Label" parent="Frame/Center/MainBox/Controls/ScrubBlock/Times"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Muted"
 text = "0m left"
 
-[node name="Sp2" type="Control" parent="Frame/Center/Column/ScrubBlock/Times"]
+[node name="Sp2" type="Control" parent="Frame/Center/MainBox/Controls/ScrubBlock/Times"]
 layout_mode = 2
 size_flags_horizontal = 3
 
-[node name="RemainingLabel" type="Label" parent="Frame/Center/Column/ScrubBlock/Times"]
+[node name="RemainingLabel" type="Label" parent="Frame/Center/MainBox/Controls/ScrubBlock/Times"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Muted"
 text = "-0:00"
 
-[node name="GapScrub" type="Control" parent="Frame/Center/Column"]
-custom_minimum_size = Vector2(0, 4)
+[node name="VolumeRow" type="HBoxContainer" parent="Frame/Center/MainBox/Controls"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="VolIcon" type="TextureRect" parent="Frame/Center/MainBox/Controls/VolumeRow"]
+custom_minimum_size = Vector2(22, 22)
+layout_mode = 2
+size_flags_vertical = 4
+texture = ExtResource("13_vol")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="VolSlider" type="HSlider" parent="Frame/Center/MainBox/Controls/VolumeRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 20)
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 4
+max_value = 1.0
+step = 0.01
+value = 1.0
+
+[node name="GapScrub" type="Control" parent="Frame/Center/MainBox/Controls"]
+custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
 
-[node name="Transport" type="HBoxContainer" parent="Frame/Center/Column"]
+[node name="Transport" type="HBoxContainer" parent="Frame/Center/MainBox/Controls"]
 custom_minimum_size = Vector2(0, 92)
 layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 14
 
-[node name="PrevBtn" type="Button" parent="Frame/Center/Column/Transport"]
+[node name="PrevBtn" type="Button" parent="Frame/Center/MainBox/Controls/Transport"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
@@ -221,7 +224,7 @@ alignment = 1
 icon = ExtResource("9_prev")
 icon_alignment = 1
 
-[node name="Back15Btn" type="Button" parent="Frame/Center/Column/Transport"]
+[node name="Back15Btn" type="Button" parent="Frame/Center/MainBox/Controls/Transport"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
@@ -230,7 +233,7 @@ alignment = 1
 icon = ExtResource("7_back")
 icon_alignment = 1
 
-[node name="PlayBtn" type="Button" parent="Frame/Center/Column/Transport"]
+[node name="PlayBtn" type="Button" parent="Frame/Center/MainBox/Controls/Transport"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(84, 84)
 layout_mode = 2
@@ -243,7 +246,7 @@ alignment = 1
 icon = ExtResource("6_play")
 icon_alignment = 1
 
-[node name="Fwd15Btn" type="Button" parent="Frame/Center/Column/Transport"]
+[node name="Fwd15Btn" type="Button" parent="Frame/Center/MainBox/Controls/Transport"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(56, 56)
 layout_mode = 2
@@ -252,7 +255,7 @@ alignment = 1
 icon = ExtResource("8_fwd")
 icon_alignment = 1
 
-[node name="NextBtn" type="Button" parent="Frame/Center/Column/Transport"]
+[node name="NextBtn" type="Button" parent="Frame/Center/MainBox/Controls/Transport"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(48, 48)
 layout_mode = 2
@@ -261,45 +264,45 @@ alignment = 1
 icon = ExtResource("10_next")
 icon_alignment = 1
 
-[node name="GapBottom" type="Control" parent="Frame/Center/Column"]
+[node name="GapBottom" type="Control" parent="Frame/Center/MainBox/Controls"]
+custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
-size_flags_vertical = 3
 
-[node name="BottomActions" type="HBoxContainer" parent="Frame/Center/Column"]
+[node name="BottomActions" type="HBoxContainer" parent="Frame/Center/MainBox/Controls"]
 custom_minimum_size = Vector2(0, 62)
 layout_mode = 2
 alignment = 1
 theme_override_constants/separation = 80
 
-[node name="SpeedCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
+[node name="SpeedCol" type="VBoxContainer" parent="Frame/Center/MainBox/Controls/BottomActions"]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 2
 
-[node name="SpeedWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/SpeedCol"]
+[node name="SpeedWrap" type="CenterContainer" parent="Frame/Center/MainBox/Controls/BottomActions/SpeedCol"]
 layout_mode = 2
 
-[node name="SpeedBtn" type="Button" parent="Frame/Center/Column/BottomActions/SpeedCol/SpeedWrap"]
+[node name="SpeedBtn" type="Button" parent="Frame/Center/MainBox/Controls/BottomActions/SpeedCol/SpeedWrap"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 34)
 layout_mode = 2
 text = "1.00x"
 
-[node name="SpeedLbl" type="Label" parent="Frame/Center/Column/BottomActions/SpeedCol"]
+[node name="SpeedLbl" type="Label" parent="Frame/Center/MainBox/Controls/BottomActions/SpeedCol"]
 layout_mode = 2
 theme_type_variation = &"Faint"
 text = "Speed"
 horizontal_alignment = 1
 
-[node name="TimerCol" type="VBoxContainer" parent="Frame/Center/Column/BottomActions"]
+[node name="TimerCol" type="VBoxContainer" parent="Frame/Center/MainBox/Controls/BottomActions"]
 layout_mode = 2
 size_flags_horizontal = 4
 theme_override_constants/separation = 2
 
-[node name="TimerWrap" type="CenterContainer" parent="Frame/Center/Column/BottomActions/TimerCol"]
+[node name="TimerWrap" type="CenterContainer" parent="Frame/Center/MainBox/Controls/BottomActions/TimerCol"]
 layout_mode = 2
 
-[node name="TimerBtn" type="Button" parent="Frame/Center/Column/BottomActions/TimerCol/TimerWrap"]
+[node name="TimerBtn" type="Button" parent="Frame/Center/MainBox/Controls/BottomActions/TimerCol/TimerWrap"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(38, 34)
 layout_mode = 2
@@ -307,15 +310,24 @@ alignment = 1
 icon = ExtResource("12_timer")
 icon_alignment = 1
 
-[node name="TimerLbl" type="Label" parent="Frame/Center/Column/BottomActions/TimerCol"]
+[node name="TimerLbl" type="Label" parent="Frame/Center/MainBox/Controls/BottomActions/TimerCol"]
 layout_mode = 2
 theme_type_variation = &"Faint"
 text = "Timer"
 horizontal_alignment = 1
 
-[node name="SpacerR" type="Control" parent="Frame/Center"]
-layout_mode = 2
-size_flags_horizontal = 3
+[node name="CloseBtn" type="Button" parent="."]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 44)
+layout_mode = 0
+offset_left = 24.0
+offset_top = 18.0
+offset_right = 128.0
+offset_bottom = 62.0
+text = "Back"
+icon = ExtResource("4_back")
+alignment = 0
+icon_alignment = 0
 
 [node name="ToastWrap" type="MarginContainer" parent="."]
 layout_mode = 1
@@ -464,6 +476,12 @@ theme_type_variation = &"Muted"
 autowrap_mode = 2
 
 [node name="TdSeries" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 2
+
+[node name="TdReleased" type="Label" parent="TitleDetailsPanel/Sheet/VBox/Scroll/Content"]
 unique_name_in_owner = true
 layout_mode = 2
 theme_type_variation = &"Muted"

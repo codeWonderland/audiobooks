@@ -12,6 +12,7 @@ signal closed
 
 const PLAY_ICON := preload("res://assets/icons/play.svg")
 const PAUSE_ICON := preload("res://assets/icons/pause.svg")
+const SPINNER_ICON := preload("res://assets/icons/spinner.svg")
 const PLACEHOLDER := preload("res://assets/icons/book_placeholder.svg")
 
 const SPEEDS := [0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
@@ -33,6 +34,8 @@ const SLEEP_OPTIONS := [0, 5, 15, 30, 45, 60]  # minutes; 0 = off
 @onready var _speed_btn: Button = %SpeedBtn
 @onready var _timer_btn: Button = %TimerBtn
 @onready var _details_btn: Button = %DetailsBtn
+@onready var _main_box: BoxContainer = %MainBox
+@onready var _vol_slider: HSlider = %VolSlider
 @onready var _toast: Label = %Toast
 @onready var _loading: Control = %LoadingOverlay
 @onready var _loading_bar: ProgressBar = %LoadingBar
@@ -47,6 +50,7 @@ const SLEEP_OPTIONS := [0, 5, 15, 30, 45, 60]  # minutes; 0 = off
 @onready var _td_author: Label = %TdAuthor
 @onready var _td_narrator: Label = %TdNarrator
 @onready var _td_series: Label = %TdSeries
+@onready var _td_released: Label = %TdReleased
 @onready var _td_stats: Label = %TdStats
 @onready var _td_description: Label = %TdDescription
 
@@ -60,12 +64,14 @@ var _user_seeking := false
 var _updating := false
 var _sleep_timer: Timer
 var _sleep_deadline := 0.0
+var _spin_tween: Tween
+var _chapter_num_re := RegEx.create_from_string("^\\s*[Cc]hapter\\s+\\d+")
 
 func _ready() -> void:
 	_close_btn.pressed.connect(func(): closed.emit())
 	_play_btn.pressed.connect(Player.toggle)
-	_back_btn.pressed.connect(func(): Player.skip(-15.0))
-	_fwd_btn.pressed.connect(func(): Player.skip(15.0))
+	_back_btn.pressed.connect(func(): _seek_by(-15.0))
+	_fwd_btn.pressed.connect(func(): _seek_by(15.0))
 	_prev_btn.pressed.connect(Player.prev_chapter)
 	_next_btn.pressed.connect(Player.next_chapter)
 	_speed_btn.pressed.connect(_cycle_speed)
@@ -93,11 +99,37 @@ func _ready() -> void:
 	add_child(_sleep_timer)
 	_sleep_timer.timeout.connect(_on_sleep_tick)
 
+	# Volume slider (linear 0..1 mapped to dB).
+	_vol_slider.value = _db_to_slider(Player.get_volume_db())
+	_vol_slider.value_changed.connect(func(v): Player.set_volume_db(_slider_to_db(v)))
+
+	# Landscape (wide) vs portrait layout.
+	get_viewport().size_changed.connect(_update_orientation)
+	_update_orientation()
+
 	_toast.modulate.a = 0.0
 	_loading.visible = false
 	_on_speed_changed(Player.get_speed())
 	if Player.current_book != null:
 		_on_book_changed(Player.current_book)
+
+# --- Responsive layout ------------------------------------------------------
+
+## Cover left / controls right when the window is wider than tall; stacked
+## (cover on top) otherwise.
+func _update_orientation() -> void:
+	var s := get_viewport_rect().size
+	var portrait := s.y >= s.x
+	_main_box.vertical = portrait
+	_main_box.add_theme_constant_override("separation", 10 if portrait else 40)
+
+# --- Volume -----------------------------------------------------------------
+
+func _slider_to_db(v: float) -> float:
+	return -80.0 if v <= 0.005 else linear_to_db(v)
+
+func _db_to_slider(db: float) -> float:
+	return clampf(db_to_linear(db), 0.0, 1.0)
 
 # --- Rendering Player state -------------------------------------------------
 
@@ -168,6 +200,32 @@ func _on_drag_ended(_changed: bool) -> void:
 	_user_seeking = false
 	Player.seek(_scrubber.value)
 
+# --- Skip with a loading indicator ------------------------------------------
+
+## Move the scrubber immediately, spin the play button while the seek loads,
+## then restore the icon to match the play/pause state.
+func _seek_by(delta: float) -> void:
+	if not Player.has_stream():
+		return
+	var target := clampf(Player.get_position() + delta, 0.0, Player.get_length())
+	_on_position_changed(target, Player.get_length())  # move the scrubber now
+	_set_loading(true)
+	await get_tree().process_frame  # let the spinner paint before the (blocking) seek
+	Player.seek(target)
+	_set_loading(false)
+	_play_btn.icon = PAUSE_ICON if Player.is_playing() else PLAY_ICON
+
+func _set_loading(on: bool) -> void:
+	if _spin_tween != null and _spin_tween.is_valid():
+		_spin_tween.kill()
+	if on:
+		_play_btn.pivot_offset = _play_btn.size * 0.5
+		_play_btn.icon = SPINNER_ICON
+		_spin_tween = create_tween().set_loops()
+		_spin_tween.tween_property(_play_btn, "rotation", TAU, 0.7).from(0.0)
+	else:
+		_play_btn.rotation = 0.0
+
 # --- Speed / sleep timer / chapters ----------------------------------------
 
 func _cycle_speed() -> void:
@@ -226,6 +284,8 @@ func _open_details() -> void:
 	_td_narrator.visible = not book.narrator.is_empty()
 	_td_series.text = book.series
 	_td_series.visible = not book.series.is_empty() and book.series != book.title
+	_td_released.text = "Released " + book.year
+	_td_released.visible = not book.year.is_empty()
 	_td_stats.text = "%s · %d chapter%s · %s" % [
 		Fmt.duration(book.duration), book.chapters.size(),
 		"" if book.chapters.size() == 1 else "s", book.format.to_upper()]
@@ -250,7 +310,10 @@ func _make_chapter_row(chapter: Dictionary, index: int, is_current: bool) -> But
 	btn.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	btn.clip_text = true
 	btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	btn.text = "%d.  %s  ·  %s" % [index + 1, chapter.title, Fmt.clock(chapter.start)]
+	# Don't prefix "N." if the chapter title already reads "Chapter <number>".
+	var title: String = chapter.title
+	var label := title if _chapter_num_re.search(title) != null else "%d.  %s" % [index + 1, title]
+	btn.text = "%s  ·  %s" % [label, Fmt.clock(chapter.start)]
 	if is_current:
 		btn.add_theme_color_override("font_color", Palette.ACCENT)
 		btn.add_theme_color_override("font_hover_color", Palette.ACCENT)
@@ -285,8 +348,8 @@ func _unhandled_input(event: InputEvent) -> void:
 				Player.toggle()
 				accept_event()
 			KEY_LEFT:
-				Player.skip(-15.0)
+				_seek_by(-15.0)
 				accept_event()
 			KEY_RIGHT:
-				Player.skip(15.0)
+				_seek_by(15.0)
 				accept_event()

@@ -237,6 +237,9 @@ func _apply_speed() -> void:
 	if _pitch:
 		_pitch.pitch_scale = 1.0 / _speed
 
+func get_volume_db() -> float:
+	return _player.volume_db
+
 func set_volume_db(db: float) -> void:
 	_player.volume_db = db
 	Settings.set_volume_db(db)
