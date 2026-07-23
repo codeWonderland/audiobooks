@@ -183,28 +183,6 @@ layout_mode = 2
 theme_type_variation = &"Muted"
 text = "-0:00"
 
-[node name="VolumeRow" type="HBoxContainer" parent="Frame/Center/MainBox/Controls"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="VolIcon" type="TextureRect" parent="Frame/Center/MainBox/Controls/VolumeRow"]
-custom_minimum_size = Vector2(22, 22)
-layout_mode = 2
-size_flags_vertical = 4
-texture = ExtResource("13_vol")
-expand_mode = 1
-stretch_mode = 5
-
-[node name="VolSlider" type="HSlider" parent="Frame/Center/MainBox/Controls/VolumeRow"]
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 20)
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 4
-max_value = 1.0
-step = 0.01
-value = 1.0
-
 [node name="GapScrub" type="Control" parent="Frame/Center/MainBox/Controls"]
 custom_minimum_size = Vector2(0, 8)
 layout_mode = 2
@@ -328,6 +306,50 @@ text = "Back"
 icon = ExtResource("4_back")
 alignment = 0
 icon_alignment = 0
+
+[node name="VolBtn" type="Button" parent="."]
+unique_name_in_owner = true
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -68.0
+offset_top = 18.0
+offset_right = -24.0
+offset_bottom = 62.0
+grow_horizontal = 0
+tooltip_text = "Volume"
+icon = ExtResource("13_vol")
+alignment = 1
+icon_alignment = 1
+
+[node name="VolPopup" type="PanelContainer" parent="."]
+unique_name_in_owner = true
+visible = false
+layout_mode = 0
+anchor_left = 1.0
+anchor_right = 1.0
+offset_left = -68.0
+offset_top = 68.0
+offset_right = -24.0
+offset_bottom = 258.0
+grow_horizontal = 0
+theme_type_variation = &"Card"
+
+[node name="VolMargin" type="MarginContainer" parent="VolPopup"]
+layout_mode = 2
+theme_override_constants/margin_left = 8
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 8
+theme_override_constants/margin_bottom = 12
+
+[node name="VolSlider" type="VSlider" parent="VolPopup/VolMargin"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 166)
+layout_mode = 2
+size_flags_horizontal = 4
+max_value = 1.0
+step = 0.01
+value = 1.0
 
 [node name="ToastWrap" type="MarginContainer" parent="."]
 layout_mode = 1

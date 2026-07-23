@@ -35,7 +35,9 @@ const SLEEP_OPTIONS := [0, 5, 15, 30, 45, 60]  # minutes; 0 = off
 @onready var _timer_btn: Button = %TimerBtn
 @onready var _details_btn: Button = %DetailsBtn
 @onready var _main_box: BoxContainer = %MainBox
-@onready var _vol_slider: HSlider = %VolSlider
+@onready var _vol_btn: Button = %VolBtn
+@onready var _vol_popup: PanelContainer = %VolPopup
+@onready var _vol_slider: VSlider = %VolSlider
 @onready var _toast: Label = %Toast
 @onready var _loading: Control = %LoadingOverlay
 @onready var _loading_bar: ProgressBar = %LoadingBar
@@ -65,6 +67,7 @@ var _updating := false
 var _sleep_timer: Timer
 var _sleep_deadline := 0.0
 var _spin_tween: Tween
+var _vol_timer: Timer
 var _chapter_num_re := RegEx.create_from_string("^\\s*[Cc]hapter\\s+\\d+")
 
 func _ready() -> void:
@@ -99,9 +102,21 @@ func _ready() -> void:
 	add_child(_sleep_timer)
 	_sleep_timer.timeout.connect(_on_sleep_tick)
 
-	# Volume slider (linear 0..1 mapped to dB).
+	# Volume: a top-right icon toggles a vertical slider that auto-hides after
+	# 30s of no interaction.
 	_vol_slider.value = _db_to_slider(Player.get_volume_db())
-	_vol_slider.value_changed.connect(func(v): Player.set_volume_db(_slider_to_db(v)))
+	_vol_slider.value_changed.connect(func(v):
+		Player.set_volume_db(_slider_to_db(v))
+		_restart_vol_timer())
+	_vol_slider.gui_input.connect(func(_e): _restart_vol_timer())
+	_vol_btn.pressed.connect(_toggle_volume)
+	_vol_popup.visible = false
+	_vol_timer = Timer.new()
+	_vol_timer.one_shot = true
+	_vol_timer.wait_time = 30.0
+	add_child(_vol_timer)
+	_vol_timer.timeout.connect(func(): _vol_popup.visible = false)
+	visibility_changed.connect(_on_visibility_changed)
 
 	# Landscape (wide) vs portrait layout.
 	get_viewport().size_changed.connect(_update_orientation)
@@ -124,6 +139,22 @@ func _update_orientation() -> void:
 	_main_box.add_theme_constant_override("separation", 10 if portrait else 40)
 
 # --- Volume -----------------------------------------------------------------
+
+func _on_visibility_changed() -> void:
+	if not visible:
+		_vol_popup.visible = false
+
+func _toggle_volume() -> void:
+	_vol_popup.visible = not _vol_popup.visible
+	if _vol_popup.visible:
+		_restart_vol_timer()
+	else:
+		_vol_timer.stop()
+
+## Reset the 30s auto-hide countdown whenever the slider is touched.
+func _restart_vol_timer() -> void:
+	if _vol_popup.visible:
+		_vol_timer.start(30.0)
 
 func _slider_to_db(v: float) -> float:
 	return -80.0 if v <= 0.005 else linear_to_db(v)
