@@ -7,6 +7,7 @@
 Open a folder of your own files, or connect your Audible account to sync and
 download your library — decrypted on‑device to clean, DRM‑free `m4b`.
 
+![Release](https://img.shields.io/github/v/release/codeWonderland/audiobooks?color=f5a63d)
 ![Godot](https://img.shields.io/badge/Godot-4.7-478CBF?logo=godotengine&logoColor=white)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%C2%B7%20Windows%20%C2%B7%20macOS-2a3a4d)
 ![No Python](https://img.shields.io/badge/dependencies-just%20ffmpeg-f5a63d)
@@ -34,10 +35,12 @@ it shells out to is `ffmpeg`.
 
 - **Audible‑style player** — frosted cover backdrop, chapter list, 15‑second skip,
   chapter navigation, a scrubber scoped to the current chapter, and whole‑book
-  "time left."
+  "time left." The layout adapts to your window: cover beside the controls when
+  wide, stacked when tall.
 - **Variable speed without the chipmunk effect** — true time‑stretch via a
-  pitch‑shift audio bus.
-- **Remembers your place** — per‑book resume, plus a sleep timer.
+  pitch‑shift audio bus, plus a quick volume control.
+- **Remembers your place** — per‑book resume and a sleep timer, and it reopens the
+  last book you were listening to on launch.
 - **Bring your own files** — scan any folder of `mp3` / `m4b` audiobooks.
 - **Connect Audible** — a native, no‑Python sign‑in (your password, CAPTCHA and
   2FA stay in your browser) syncs your library and fetches your activation bytes.
@@ -45,8 +48,9 @@ it shells out to is `ffmpeg`.
   `m4b` (chapters + cover preserved), then pre‑prepared for **instant playback**.
 - **Resumable** — if you quit mid‑download, it picks up from the last completed
   step on next launch.
-- **All / Downloaded tabs** — browse everything or just what's on disk; cloud‑only
-  titles are clearly badged.
+- **Find any book** — All / Downloaded tabs, live search across title, author,
+  narrator and series, and sort by title, author or release date. A refresh
+  button re‑pulls your Audible library on demand.
 
 ## Screenshots
 
