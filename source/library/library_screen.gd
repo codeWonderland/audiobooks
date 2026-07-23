@@ -62,6 +62,7 @@ var _selected_entry: Dictionary = {}
 var _selected_key: String = ""
 var _search := ""
 var _sort := SORT_TITLE
+var _auto_selected := false   # last-book auto-selection happens once, on launch
 var _dialog: FileDialog
 
 func _ready() -> void:
@@ -270,8 +271,25 @@ func _rebuild() -> void:
 	if not _selected_key.is_empty() and _cards_by_key.has(_selected_key):
 		var card: Node = _cards_by_key[_selected_key]
 		_select(card.entry, card)
-	elif _selected_key.is_empty():
+	elif _selected_key.is_empty() and not _auto_select_last():
 		_show_sidebar_empty()
+
+## On first launch, open the last-listened book in the sidebar. Runs once, once
+## the book appears in the grid (keeps trying across scan/sync rebuilds).
+func _auto_select_last() -> bool:
+	if _auto_selected:
+		return false
+	var last := Settings.get_last_book()
+	if last.is_empty():
+		return false
+	for k in _cards_by_key:
+		var card: Node = _cards_by_key[k]
+		var bk = card.entry.get("book")
+		if bk != null and bk.id == last:
+			_auto_selected = true
+			_select(card.entry, card)
+			return true
+	return false
 
 func _make_card(entry: Dictionary) -> void:
 	var card := BookCardScene.instantiate()

@@ -61,6 +61,7 @@ func _setup_bus() -> void:
 
 ## Load a book and (by default) start playing from its saved position.
 func open(book: Book, autoplay: bool = true) -> void:
+	Settings.set_last_book(book.id)  # remembered for re-selection next launch
 	if current_book != null and current_book.id == book.id and _player.stream != null:
 		if autoplay:
 			play()

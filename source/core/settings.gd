@@ -37,6 +37,14 @@ func set_volume_db(v: float) -> void:
 	_cfg.set_value("playback", "volume_db", v)
 	_flush()
 
+## The most recently opened book's id, so it can be re-selected on next launch.
+func get_last_book() -> String:
+	return _cfg.get_value("playback", "last_book", "")
+
+func set_last_book(id: String) -> void:
+	_cfg.set_value("playback", "last_book", id)
+	_flush()
+
 # --- Audible / DRM secrets --------------------------------------------------
 
 ## Account-wide activation bytes (8 hex chars) used to decrypt legacy .aax
