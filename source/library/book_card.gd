@@ -37,6 +37,11 @@ func set_cover_texture(tex: Texture2D) -> void:
 	if tex != null:
 		_cover.texture = tex
 
+## Overrides the badge to show a download phase (e.g. "↓ 42%"); empty text
+## restores the default DOWNLOAD badge.
+func set_progress_text(text: String) -> void:
+	_badge.text = text if not text.is_empty() else "⬇ DOWNLOAD"
+
 func set_selected(on: bool) -> void:
 	if on:
 		var sb := StyleBoxFlat.new()

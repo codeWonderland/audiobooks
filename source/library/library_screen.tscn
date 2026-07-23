@@ -211,6 +211,12 @@ layout_mode = 2
 theme_type_variation = &"Muted"
 autowrap_mode = 2
 
+[node name="SbReleased" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
+unique_name_in_owner = true
+layout_mode = 2
+theme_type_variation = &"Muted"
+autowrap_mode = 2
+
 [node name="SbStats" type="Label" parent="Margin/Root/Body/Sidebar/Inner/DetailScroll/DetailPad/SidebarContent"]
 unique_name_in_owner = true
 layout_mode = 2

@@ -22,7 +22,6 @@ const TAB_DOWNLOADED := 1
 const SORT_TITLE := 0
 const SORT_AUTHOR := 1
 const SORT_RELEASE := 2
-const SORT_DURATION := 3
 
 @onready var _open_btn: Button = %OpenFolderBtn
 @onready var _settings_btn: Button = %SettingsBtn
@@ -43,6 +42,7 @@ const SORT_DURATION := 3
 @onready var _sb_author: Label = %SbAuthor
 @onready var _sb_narrator: Label = %SbNarrator
 @onready var _sb_series: Label = %SbSeries
+@onready var _sb_released: Label = %SbReleased
 @onready var _sb_stats: Label = %SbStats
 @onready var _sb_description: Label = %SbDescription
 @onready var _sb_progress: Label = %SbProgress
@@ -75,7 +75,7 @@ func _ready() -> void:
 	_tabs.add_tab("Downloaded")
 	_tabs.tab_changed.connect(func(_i): _rebuild())
 
-	for label in ["Title", "Author", "Release date", "Duration"]:
+	for label in ["Title", "Author", "Release date"]:
 		_sort_option.add_item(label)
 	_sort_option.item_selected.connect(func(i): _sort = i; _rebuild())
 	_search_edit.text_changed.connect(func(t): _search = t; _rebuild())
@@ -218,10 +218,6 @@ func _sort_cmp(a: Dictionary, b: Dictionary) -> bool:
 			if String(b.date).is_empty():
 				return true
 			return a.date > b.date  # newest first
-		SORT_DURATION:
-			if is_equal_approx(a.duration_sec, b.duration_sec):
-				return String(a.title).naturalnocasecmp_to(b.title) < 0
-			return a.duration_sec > b.duration_sec  # longest first
 		_:
 			return String(a.title).naturalnocasecmp_to(b.title) < 0
 
@@ -286,6 +282,8 @@ func _make_card(entry: Dictionary) -> void:
 	_cards_by_key[entry.key] = card
 	if not entry.downloaded:
 		Library.request_remote_cover(entry.asin, entry.cloud.get("cover_url", ""))
+		if Audible.is_downloading(entry.asin):
+			card.set_progress_text(_download_badge(Audible.download_status(entry.asin)))
 
 func _on_card_activated(entry: Dictionary, card: Node) -> void:
 	_select(entry, card)
@@ -358,7 +356,23 @@ func _populate_sidebar(entry: Dictionary) -> void:
 		_sb_series.visible = not str(cloud.get("series", "")).is_empty()
 		_sb_stats.text = "%s · in your Audible library" % Fmt.duration(int(cloud.get("runtime_min", 0)) * 60)
 		_sb_description.visible = false
+	var released := _format_release(str(entry.get("date", "")))
+	_sb_released.text = "Released " + released
+	_sb_released.visible = not released.is_empty()
 	_update_sidebar_action(entry)
+
+## Turns a release date ("2018-05-01" or "2022") into a readable string.
+func _format_release(raw: String) -> String:
+	if raw.is_empty():
+		return ""
+	var parts := raw.split("-")
+	if parts.size() >= 3 and parts[0].length() == 4:
+		var months := ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+				"Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+		var mi := int(parts[1]) - 1
+		if mi >= 0 and mi < 12:
+			return "%s %d, %s" % [months[mi], int(parts[2]), parts[0]]
+	return raw.left(4) if raw.length() >= 4 else raw
 
 ## Sets the sidebar action button for the current entry.
 func _update_sidebar_action(entry: Dictionary) -> void:
@@ -366,8 +380,13 @@ func _update_sidebar_action(entry: Dictionary) -> void:
 		return
 	var book = entry.get("book")
 	if book == null:
-		_sb_play.disabled = false
-		_sb_play.text = "Download"
+		var asin: String = entry.get("asin", "")
+		if Audible.is_downloading(asin):
+			_sb_play.disabled = true
+			_sb_play.text = _download_label(Audible.download_status(asin))
+		else:
+			_sb_play.disabled = false
+			_sb_play.text = "Download"
 		_sb_progress.visible = false
 		return
 	if book.encrypted and not book.secret_ready():
@@ -400,12 +419,10 @@ func _on_sidebar_play() -> void:
 		return
 	var book = _selected_entry.get("book")
 	if book == null:
-		# Cloud-only: download it.
-		_sb_play.disabled = true
-		_sb_play.text = "Starting…"
-		_sb_progress.text = "Preparing download…"
-		_sb_progress.visible = true
+		# Cloud-only: download it. State is tracked in Audible so the card and
+		# sidebar stay correct across searches/rebuilds.
 		Audible.download_book(_selected_entry.get("cloud", {}))
+		_apply_download_ui(_selected_entry.get("asin", ""))
 		return
 	if book.encrypted and not book.secret_ready():
 		settings_requested.emit()
@@ -427,27 +444,56 @@ func reload() -> void:
 func _is_selected_asin(asin: String) -> bool:
 	return _selected_entry.get("asin", "") == asin and not asin.is_empty()
 
-func _on_dl_progress(asin: String, ratio: float) -> void:
-	if _is_selected_asin(asin):
-		_sb_play.text = "Downloading %d%%" % int(ratio * 100.0)
+func _on_dl_progress(asin: String, _ratio: float) -> void:
+	_apply_download_ui(asin)
 
 func _on_dl_converting(asin: String) -> void:
-	if _is_selected_asin(asin):
-		_sb_play.text = "Converting…"
+	_apply_download_ui(asin)
 
 func _on_dl_preparing(asin: String) -> void:
-	if _is_selected_asin(asin):
-		_sb_play.text = "Preparing audio…"
+	_apply_download_ui(asin)
 
 func _on_dl_finished(asin: String, success: bool, message: String) -> void:
 	if success:
 		_selected_key = asin  # re-select once it reappears as a local book
 		Library.rescan()
-	elif _is_selected_asin(asin):
+		return
+	# Failed: revert the card badge and sidebar action.
+	if _cards_by_key.has(asin):
+		_cards_by_key[asin].set_progress_text("")
+	if _is_selected_asin(asin):
 		_sb_play.disabled = false
 		_sb_play.text = "Download"
 		_sb_progress.text = message
 		_sb_progress.visible = true
+
+## Reflect an in-flight download's state on its card badge and, if it's the
+## selected book, the sidebar action button. Reads the global state in Audible
+## so it's correct even after a search/sort rebuild.
+func _apply_download_ui(asin: String) -> void:
+	var status := Audible.download_status(asin)
+	if _cards_by_key.has(asin):
+		_cards_by_key[asin].set_progress_text(_download_badge(status))
+	if _is_selected_asin(asin):
+		_sb_play.disabled = true
+		_sb_play.text = _download_label(status)
+		_sb_progress.visible = false
+
+func _download_label(status: Dictionary) -> String:
+	match status.get("phase", ""):
+		"downloading": return "Downloading %d%%" % int(status.get("ratio", 0.0) * 100.0)
+		"converting": return "Converting…"
+		"preparing": return "Preparing audio…"
+		"starting": return "Starting…"
+	return "Download"
+
+func _download_badge(status: Dictionary) -> String:
+	match status.get("phase", ""):
+		"downloading": return "↓ %d%%" % int(status.get("ratio", 0.0) * 100.0)
+		"converting": return "CONVERTING"
+		"preparing": return "PREPARING"
+		"starting": return "STARTING…"
+	return ""
 
 # --- Mini player ------------------------------------------------------------
 

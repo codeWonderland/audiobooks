@@ -35,6 +35,7 @@ const MARKETS := {
 var _crypto := Crypto.new()
 var _auth: Dictionary = {}          # persisted registration bundle
 var _pending: Dictionary = {}       # in-flight login: verifier, serial, client_id, country
+var _downloads: Dictionary = {}     # asin -> {phase, ratio} for in-flight downloads
 
 func _ready() -> void:
 	_load()
@@ -310,6 +311,35 @@ func _read_voucher(asin: String) -> Dictionary:
 	var d = JSON.parse_string(f.get_as_text())
 	return d if d is Dictionary else {}
 
+# --- Download state (global, so UI can reflect it after any rebuild) --------
+
+## Latest state of an in-flight download, or {} if none. phase is one of
+## "starting", "downloading" (with "ratio"), "converting", "preparing".
+func download_status(asin: String) -> Dictionary:
+	return _downloads.get(asin, {})
+
+func is_downloading(asin: String) -> bool:
+	return _downloads.has(asin)
+
+func _set_dl(asin: String, state: Dictionary) -> void:
+	_downloads[asin] = state
+
+func _emit_progress(asin: String, ratio: float) -> void:
+	_downloads[asin] = {"phase": "downloading", "ratio": ratio}
+	download_progress.emit(asin, ratio)
+
+func _emit_converting(asin: String) -> void:
+	_downloads[asin] = {"phase": "converting"}
+	download_converting.emit(asin)
+
+func _emit_preparing(asin: String) -> void:
+	_downloads[asin] = {"phase": "preparing"}
+	download_preparing.emit(asin)
+
+func _emit_finished(asin: String, ok: bool, msg: String) -> void:
+	_downloads.erase(asin)
+	download_finished.emit(asin, ok, msg)
+
 # --- Download pipeline -------------------------------------------------------
 
 ## Full pipeline: download the AAXC, then losslessly decrypt/remux it to a
@@ -318,21 +348,22 @@ func _read_voucher(asin: String) -> Dictionary:
 func download_book(item: Dictionary) -> void:
 	var asin := str(item.get("asin", ""))
 	if asin.is_empty():
-		download_finished.emit(asin, false, "Missing asin.")
+		_emit_finished(asin, false, "Missing asin.")
 		return
 	if FileAccess.file_exists(_m4b_path(asin)):
-		download_finished.emit(asin, true, "Already downloaded.")
+		_emit_finished(asin, true, "Already downloaded.")
 		return
+	_set_dl(asin, {"phase": "starting"})  # mark active immediately (before license)
 	var lic := await _get_license(asin)
 	if not lic.get("ok", false):
-		download_finished.emit(asin, false, lic.get("error", "License request failed."))
+		_emit_finished(asin, false, lic.get("error", "License request failed."))
 		return
 	# Stage 1: download to a .part (scanner ignores it), then commit.
 	var dl := _dl_part(asin)
 	_rm(dl)
 	if not await _download_file(lic.url, dl, asin):
 		_rm(dl)
-		download_finished.emit(asin, false, "Download failed.")
+		_emit_finished(asin, false, "Download failed.")
 		return
 	_write_voucher(asin, lic.key, lic.iv)
 	_rm(_aaxc_path(asin))
@@ -345,25 +376,25 @@ func download_book(item: Dictionary) -> void:
 func _process_from_aaxc(asin: String) -> void:
 	var v := _read_voucher(asin)
 	if v.is_empty():
-		download_finished.emit(asin, false, "Missing voucher; cannot convert.")
+		_emit_finished(asin, false, "Missing voucher; cannot convert.")
 		return
-	download_converting.emit(asin)
+	_emit_converting(asin)
 	var part := _m4b_part(asin)
 	_rm(part)  # discard any partial output from a previous interrupted convert
 	var ok := await _convert_aaxc_to_m4b(_aaxc_path(asin), v.get("key", ""), v.get("iv", ""), part)
 	if not ok:
 		_rm(part)
 		# Keep the encrypted file + voucher; it still plays via the aaxc path.
-		download_finished.emit(asin, true, "Downloaded (kept encrypted file; conversion failed).")
+		_emit_finished(asin, true, "Downloaded (kept encrypted file; conversion failed).")
 		return
 	_rm(_m4b_path(asin))
 	DirAccess.rename_absolute(part, _m4b_path(asin))
 	_rm(_aaxc_path(asin))
 	_rm(_voucher_path(asin))
 	# Stage 3: pre-build the playback cache.
-	download_preparing.emit(asin)
+	_emit_preparing(asin)
 	await Transcoder.pregenerate_ogg(_m4b_path(asin))
-	download_finished.emit(asin, true, "Downloaded & ready to play.")
+	_emit_finished(asin, true, "Downloaded & ready to play.")
 
 # --- Resume interrupted pipelines on launch ---------------------------------
 
@@ -397,9 +428,9 @@ func _resume_asin(asin: String) -> void:
 	if FileAccess.file_exists(_m4b_path(asin)):
 		_rm(_m4b_part(asin))
 		if not Transcoder.has_ogg_for(_m4b_path(asin)):
-			download_preparing.emit(asin)
+			_emit_preparing(asin)
 			await Transcoder.pregenerate_ogg(_m4b_path(asin))
-			download_finished.emit(asin, true, "Ready to play.")
+			_emit_finished(asin, true, "Ready to play.")
 		return
 	if FileAccess.file_exists(_aaxc_path(asin)) and FileAccess.file_exists(_voucher_path(asin)):
 		await _process_from_aaxc(asin)
@@ -504,7 +535,7 @@ func _download_file(url: String, dest_path: String, asin: String) -> bool:
 	while not done.v:
 		var total := req.get_body_size()
 		if total > 0:
-			download_progress.emit(asin, clampf(float(req.get_downloaded_bytes()) / float(total), 0.0, 1.0))
+			_emit_progress(asin, clampf(float(req.get_downloaded_bytes()) / float(total), 0.0, 1.0))
 		await get_tree().process_frame
 	var success: bool = done.r == HTTPRequest.RESULT_SUCCESS and int(done.c) >= 200 and int(done.c) < 400
 	req.queue_free()
