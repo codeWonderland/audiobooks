@@ -19,12 +19,20 @@ const PLACEHOLDER := preload("res://assets/icons/book_placeholder.svg")
 const TAB_ALL := 0
 const TAB_DOWNLOADED := 1
 
+const SORT_TITLE := 0
+const SORT_AUTHOR := 1
+const SORT_RELEASE := 2
+const SORT_DURATION := 3
+
 @onready var _open_btn: Button = %OpenFolderBtn
 @onready var _settings_btn: Button = %SettingsBtn
+@onready var _refresh_btn: Button = %RefreshBtn
 @onready var _folder_label: Label = %FolderLabel
 @onready var _status: Label = %StatusLabel
 @onready var _scan_bar: ProgressBar = %ScanBar
 @onready var _tabs: TabBar = %Tabs
+@onready var _search_edit: LineEdit = %SearchEdit
+@onready var _sort_option: OptionButton = %SortOption
 @onready var _grid: HFlowContainer = %Grid
 @onready var _empty_state: Label = %EmptyState
 
@@ -52,16 +60,25 @@ var _cloud_items: Array = []
 var _cards_by_key: Dictionary = {}   # key -> card
 var _selected_entry: Dictionary = {}
 var _selected_key: String = ""
+var _search := ""
+var _sort := SORT_TITLE
 var _dialog: FileDialog
 
 func _ready() -> void:
 	_open_btn.pressed.connect(_pick_folder)
 	_settings_btn.pressed.connect(func(): settings_requested.emit())
+	_refresh_btn.pressed.connect(_on_refresh)
+	_refresh_btn.visible = Audible.is_signed_in()
 	_sb_play.pressed.connect(_on_sidebar_play)
 
 	_tabs.add_tab("All")
 	_tabs.add_tab("Downloaded")
 	_tabs.tab_changed.connect(func(_i): _rebuild())
+
+	for label in ["Title", "Author", "Release date", "Duration"]:
+		_sort_option.add_item(label)
+	_sort_option.item_selected.connect(func(i): _sort = i; _rebuild())
+	_search_edit.text_changed.connect(func(t): _search = t; _rebuild())
 
 	Library.scan_finished.connect(_on_scan_finished)
 	Library.remote_cover_ready.connect(_on_remote_cover)
@@ -126,14 +143,25 @@ func _on_scan_finished(books: Array) -> void:
 
 func _on_synced(items: Array, message: String) -> void:
 	_cloud_items = items
+	_refresh_btn.disabled = false
 	_rebuild()
 
 func _on_audible_state() -> void:
+	_refresh_btn.visible = Audible.is_signed_in()
 	if Audible.is_signed_in():
 		_sync_if_connected()
 	else:
 		_cloud_items = []
 		_rebuild()
+
+## Re-pull the library from Audible (and rescan local files).
+func _on_refresh() -> void:
+	if not Audible.is_signed_in():
+		return
+	_refresh_btn.disabled = true
+	_status.text = "Refreshing from Audible…"
+	Library.rescan()
+	Audible.sync_library()
 
 # --- Entry model ------------------------------------------------------------
 
@@ -144,28 +172,58 @@ func _compute_entries() -> Array:
 	for it in _cloud_items:
 		var asin: String = it.get("asin", "")
 		by_asin[asin] = {
-			"key": asin, "asin": asin, "cloud": it, "book": null,
-			"downloaded": false, "title": it.get("title", ""), "author": it.get("authors", ""),
+			"key": asin, "asin": asin, "cloud": it, "book": null, "downloaded": false,
+			"title": it.get("title", ""), "author": it.get("authors", ""),
+			"narrator": it.get("narrators", ""), "series": it.get("series", ""),
+			"date": str(it.get("release_date", "")),
+			"duration_sec": float(int(it.get("runtime_min", 0)) * 60), "description": "",
 		}
 	var extras: Array = []
 	for b in _local_books:
 		var asin := _asin_for(b)
 		if not asin.is_empty() and by_asin.has(asin):
-			by_asin[asin].book = b
-			by_asin[asin].downloaded = true
-			by_asin[asin].title = b._display_title()
-			by_asin[asin].author = b.author
+			var e: Dictionary = by_asin[asin]
+			e.book = b
+			e.downloaded = true
+			e.title = b._display_title()
+			e.author = b.author
+			e.narrator = b.narrator
+			e.series = b.series
+			e.date = b.year
+			e.duration_sec = b.duration
+			e.description = b.description
 		else:
 			extras.append({
-				"key": "local:" + b.id, "asin": asin, "cloud": {}, "book": b,
-				"downloaded": true, "title": b._display_title(), "author": b.author,
+				"key": "local:" + b.id, "asin": asin, "cloud": {}, "book": b, "downloaded": true,
+				"title": b._display_title(), "author": b.author, "narrator": b.narrator,
+				"series": b.series, "date": b.year, "duration_sec": b.duration,
+				"description": b.description,
 			})
 	var entries: Array = extras + by_asin.values()
-	entries.sort_custom(func(a, c):
-		if a.downloaded != c.downloaded:
-			return a.downloaded  # downloaded first
-		return a.title.naturalnocasecmp_to(c.title) < 0)
+	for e in entries:
+		e["search"] = ("%s %s %s %s %s" % [e.title, e.author, e.narrator, e.series, e.description]).to_lower()
 	return entries
+
+## Ordering used by the Sort dropdown. Ties fall back to title.
+func _sort_cmp(a: Dictionary, b: Dictionary) -> bool:
+	match _sort:
+		SORT_AUTHOR:
+			var r := String(a.author).naturalnocasecmp_to(b.author)
+			return r < 0 if r != 0 else String(a.title).naturalnocasecmp_to(b.title) < 0
+		SORT_RELEASE:
+			if a.date == b.date:
+				return String(a.title).naturalnocasecmp_to(b.title) < 0
+			if String(a.date).is_empty():
+				return false
+			if String(b.date).is_empty():
+				return true
+			return a.date > b.date  # newest first
+		SORT_DURATION:
+			if is_equal_approx(a.duration_sec, b.duration_sec):
+				return String(a.title).naturalnocasecmp_to(b.title) < 0
+			return a.duration_sec > b.duration_sec  # longest first
+		_:
+			return String(a.title).naturalnocasecmp_to(b.title) < 0
 
 func _asin_for(book: Book) -> String:
 	var dd := Library.download_dir()
@@ -183,10 +241,20 @@ func _rebuild() -> void:
 
 	var entries := _compute_entries()
 	var downloaded_count := 0
-	var shown := 0
 	for e in entries:
 		if e.downloaded:
 			downloaded_count += 1
+
+	# Search filter (title/author/narrator/series/description), then sort.
+	var q := _search.strip_edges().to_lower()
+	var filtered: Array = []
+	for e in entries:
+		if q.is_empty() or e.search.contains(q):
+			filtered.append(e)
+	filtered.sort_custom(_sort_cmp)
+
+	var shown := 0
+	for e in filtered:
 		if _tabs.current_tab == TAB_DOWNLOADED and not e.downloaded:
 			continue
 		_make_card(e)
@@ -194,9 +262,13 @@ func _rebuild() -> void:
 
 	_empty_state.visible = shown == 0
 	if shown == 0:
-		_empty_state.text = _empty_message()
-	_status.text = "%d downloaded · %d in cloud" % [downloaded_count, _cloud_items.size()] \
-			if not _cloud_items.is_empty() else "%d book%s" % [downloaded_count, "" if downloaded_count == 1 else "s"]
+		_empty_state.text = _search_empty_message() if not q.is_empty() else _empty_message()
+	if not q.is_empty():
+		_status.text = "%d result%s for \"%s\"" % [shown, "" if shown == 1 else "s", _search.strip_edges()]
+	elif not _cloud_items.is_empty():
+		_status.text = "%d downloaded · %d in cloud" % [downloaded_count, _cloud_items.size()]
+	else:
+		_status.text = "%d book%s" % [downloaded_count, "" if downloaded_count == 1 else "s"]
 
 	# Restore selection if the selected entry is still visible.
 	if not _selected_key.is_empty() and _cards_by_key.has(_selected_key):
@@ -232,6 +304,9 @@ func _empty_message() -> String:
 	if _tabs.current_tab == TAB_DOWNLOADED:
 		return "No downloaded books yet. Switch to All to download from your Audible library."
 	return "No audiobooks yet. Connect your Audible account in Settings to see your library, or open a folder of mp3/m4b files."
+
+func _search_empty_message() -> String:
+	return "No books match \"%s\"." % _search.strip_edges()
 
 # --- Selection --------------------------------------------------------------
 

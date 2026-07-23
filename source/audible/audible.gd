@@ -266,6 +266,7 @@ func _map_item(it: Dictionary) -> Dictionary:
 		"runtime_min": int(it.get("runtime_length_min", 0)),
 		"cover_url": cover,
 		"series": series,
+		"release_date": str(it.get("release_date", it.get("issue_date", ""))),
 		"downloaded": is_downloaded(asin),
 	}
 

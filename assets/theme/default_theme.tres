@@ -1,4 +1,4 @@
-[gd_resource type="Theme" load_steps=21 format=3 uid="uid://c3aud1othemeaa"]
+[gd_resource type="Theme" load_steps=23 format=3 uid="uid://c3aud1othemeaa"]
 
 [ext_resource type="Texture2D" uid="uid://dtu622ns8rko7" path="res://assets/icons/grabber.svg" id="1_grab"]
 
@@ -190,6 +190,29 @@ content_margin_right = 16.0
 content_margin_bottom = 9.0
 bg_color = Color(1, 1, 1, 0.05)
 
+[sub_resource type="StyleBoxFlat" id="popup_panel"]
+content_margin_left = 6.0
+content_margin_top = 6.0
+content_margin_right = 6.0
+content_margin_bottom = 6.0
+bg_color = Color(0.106, 0.157, 0.220, 1)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.28, 0.36, 0.46, 1)
+corner_radius_top_left = 10
+corner_radius_top_right = 10
+corner_radius_bottom_right = 10
+corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="popup_hover"]
+bg_color = Color(1, 1, 1, 0.08)
+corner_radius_top_left = 6
+corner_radius_top_right = 6
+corner_radius_bottom_right = 6
+corner_radius_bottom_left = 6
+
 [sub_resource type="StyleBoxFlat" id="progress_bg"]
 bg_color = Color(0.165, 0.227, 0.302, 1)
 corner_radius_top_left = 4
@@ -281,3 +304,9 @@ TabBar/styles/tab_selected = SubResource("tab_selected")
 TabBar/styles/tab_unselected = SubResource("tab_unselected")
 TabBar/styles/tab_hovered = SubResource("tab_hovered")
 TabBar/styles/tab_focus = SubResource("tab_unselected")
+PopupMenu/colors/font_color = Color(0.929, 0.937, 0.949, 1)
+PopupMenu/colors/font_hover_color = Color(1, 1, 1, 1)
+PopupMenu/colors/font_separator_color = Color(0.541, 0.596, 0.659, 1)
+PopupMenu/font_sizes/font_size = 15
+PopupMenu/styles/panel = SubResource("popup_panel")
+PopupMenu/styles/hover = SubResource("popup_hover")

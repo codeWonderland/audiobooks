@@ -1,9 +1,10 @@
-[gd_scene load_steps=4 format=3]
+[gd_scene load_steps=5 format=3]
 
 [ext_resource type="Script" path="res://source/library/library_screen.gd" id="1_lib"]
 [ext_resource type="Texture2D" uid="uid://hq2cgxpyhier" path="res://assets/icons/folder.svg" id="2_folder"]
 [ext_resource type="Texture2D" path="res://assets/icons/play.svg" id="3_play"]
 [ext_resource type="Texture2D" path="res://assets/icons/gear.svg" id="4_gear"]
+[ext_resource type="Texture2D" path="res://assets/icons/refresh.svg" id="5_refresh"]
 
 [node name="LibraryScreen" type="Control"]
 layout_mode = 3
@@ -47,6 +48,17 @@ theme_type_variation = &"Muted"
 text = "No folder selected"
 text_overrun_behavior = 3
 
+[node name="RefreshBtn" type="Button" parent="Margin/Root/Toolbar"]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(44, 44)
+layout_mode = 2
+size_flags_vertical = 4
+tooltip_text = "Refresh library from Audible"
+alignment = 1
+icon = ExtResource("5_refresh")
+icon_alignment = 1
+
 [node name="SettingsBtn" type="Button" parent="Margin/Root/Toolbar"]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(44, 44)
@@ -64,9 +76,33 @@ theme_type_variation = &"Primary"
 text = "  Open Folder"
 icon = ExtResource("2_folder")
 
-[node name="Tabs" type="TabBar" parent="Margin/Root"]
+[node name="FilterRow" type="HBoxContainer" parent="Margin/Root"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Tabs" type="TabBar" parent="Margin/Root/FilterRow"]
 unique_name_in_owner = true
 layout_mode = 2
+size_flags_vertical = 4
+clip_tabs = false
+
+[node name="Spacer" type="Control" parent="Margin/Root/FilterRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="SearchEdit" type="LineEdit" parent="Margin/Root/FilterRow"]
+unique_name_in_owner = true
+custom_minimum_size = Vector2(260, 0)
+layout_mode = 2
+size_flags_vertical = 4
+placeholder_text = "Search title, author…"
+clear_button_enabled = true
+
+[node name="SortOption" type="OptionButton" parent="Margin/Root/FilterRow"]
+unique_name_in_owner = true
+layout_mode = 2
+size_flags_vertical = 4
+theme_type_variation = &"Pill"
 
 [node name="ScanBar" type="ProgressBar" parent="Margin/Root"]
 unique_name_in_owner = true
